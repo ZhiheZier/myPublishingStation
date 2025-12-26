@@ -20,6 +20,9 @@ export default {
           900: '#0c4a6e',
         },
       },
+      rotate: {
+        '360': '360deg',
+      },
     },
   },
   plugins: [],

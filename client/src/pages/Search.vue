@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Search Header -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div class="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-6 mb-6">
       <h1 class="text-2xl font-bold text-gray-900 mb-2">
         搜索结果
       </h1>
@@ -55,7 +55,7 @@
     </div>
 
     <!-- No Query -->
-    <div v-else-if="!query" class="text-center py-12 bg-white rounded-lg">
+    <div v-else-if="!query" class="text-center py-12 bg-white/90 backdrop-blur-sm rounded-lg">
       <p class="text-gray-500 text-lg mb-4">请输入搜索关键词</p>
       <router-link
         to="/"
@@ -74,7 +74,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else class="text-center py-12 bg-white rounded-lg">
+    <div v-else class="text-center py-12 bg-white/90 backdrop-blur-sm rounded-lg">
       <svg
         class="mx-auto h-12 w-12 text-gray-400 mb-4"
         fill="none"

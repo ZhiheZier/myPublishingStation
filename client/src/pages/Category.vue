@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Category Header -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div class="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-6 mb-6">
       <h1 class="text-2xl font-bold text-gray-900 mb-2">
         {{ decodedCategory }}
       </h1>
@@ -63,7 +63,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else class="text-center py-12 bg-white rounded-lg">
+    <div v-else class="text-center py-12 bg-white/90 backdrop-blur-sm rounded-lg">
       <p class="text-gray-500 text-lg">该分类下暂无文章</p>
       <router-link
         to="/"
@@ -129,7 +129,7 @@ const visiblePages = computed(() => {
 const loadPosts = async () => {
   loading.value = true
   try {
-    const res = await getPosts({ category: decodedCategory.value, page: page.value, limit })
+    const res = await getPosts({ tag: decodedCategory.value, page: page.value, limit })
     posts.value = res.data.posts
     total.value = res.data.total
   } catch (err) {

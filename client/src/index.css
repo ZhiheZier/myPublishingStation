@@ -4,7 +4,7 @@
 
 /* Starry Background */
 .starry-background {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   position: relative;
   min-height: 100vh;
   overflow-x: hidden;
@@ -73,7 +73,7 @@
 
 @layer components {
   .container-custom {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-4;
+    @apply max-w-7xl mx-auto px-10 sm:px-12 lg:px-10;
   }
   
   .card {

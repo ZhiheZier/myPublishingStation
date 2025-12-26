@@ -1,9 +1,40 @@
 <template>
   <div>
+    <!-- Personal Info Section -->
+    <div class="bg-white/30 rounded mb-6 p-6 transition-all duration-300" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);" @mouseenter="hoveringInfo = true" @mouseleave="hoveringInfo = false" :style="{ boxShadow: hoveringInfo ? '0 8px 24px rgba(0, 0, 0, 0.6)' : '0 4px 12px rgba(0, 0, 0, 0.4)' }">
+      <div class="grid grid-cols-2 gap-4 p-6">
+        <!-- Person 1 -->
+        <div class="flex items-center gap-3">
+          <div class="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-10 h-10 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-base font-medium text-gray-900">用户名 1</h4>
+            <p class="text-sm text-gray-600">个人简介或标签</p>
+          </div>
+        </div>
+        
+        <!-- Person 2 -->
+        <div class="flex items-center gap-3">
+          <div class="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-10 h-10 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-base font-medium text-gray-900">用户名 2</h4>
+            <p class="text-sm text-gray-600">个人简介或标签</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Posts List - Single Column -->
     <div v-if="posts.length > 0">
-      <div class="space-y-0">
-        <PostCard v-for="post in posts" :key="post.id" :post="post" />
+      <div class="space-y-6">
+        <PostCard v-for="(post, index) in posts" :key="post.id" :post="post" :index="index" />
       </div>
 
       <!-- Pagination -->
@@ -53,7 +84,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else class="text-center py-12 bg-white rounded-lg">
+    <div v-else class="text-center py-12 bg-white/60 backdrop-blur-sm rounded-lg hover:bg-white/80 transition-colors">
       <p class="text-gray-500 text-lg">暂无文章</p>
     </div>
   </div>
@@ -68,7 +99,8 @@ const posts = ref([])
 const loading = ref(true)
 const page = ref(1)
 const total = ref(0)
-const limit = 9
+const limit = 10
+const hoveringInfo = ref(false)
 
 const totalPages = computed(() => Math.ceil(total.value / limit))
 
@@ -128,3 +160,13 @@ onMounted(() => {
   loadPosts()
 })
 </script>
+
+<style scoped>
+.sidebar-widget {
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.sidebar-widget:hover {
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+}
+</style>

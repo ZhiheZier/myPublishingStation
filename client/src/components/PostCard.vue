@@ -4,16 +4,21 @@
     class="bg-white/30 rounded shadow-sm transition-all duration-300 p-6" 
     style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);" 
     :style="{ 
-      boxShadow: hovering ? '0 8px 24px rgba(0, 0, 0, 0.6)' : '0 4px 12px rgba(0, 0, 0, 0.4)'
+      boxShadow: hovering ? '0 12px 32px rgba(0, 0, 0, 0.8)' : '0 4px 12px rgba(0, 0, 0, 0.4)'
     }"
-    @mouseenter="hovering = true; isHovering = true" 
-    @mouseleave="hovering = false; isHovering = false"
+    @mouseenter="hovering = true" 
+    @mouseleave="hovering = false"
   >
     <!-- Title - Centered -->
-    <h2 class="text-xl font-bold text-center mb-3">
-      <router-link :to="`/post/${post.id}`" class="post-title inline-block px-4 py-2 rounded text-white transition-all duration-300 hover:!bg-transparent" style="background-color: rgba(79, 195, 247, 0.6);">
+    <h2 class="text-2xl font-bold text-center mb-3">
+      <a 
+        @click.prevent="openInNewTab(`/post/${post.id}`)"
+        href="#" 
+        class="post-title inline-block px-4 py-2 rounded text-white transition-all duration-300 hover:!bg-transparent title-link cursor-pointer" 
+        style="background-color: rgba(79, 195, 247, 0.6);"
+      >
         {{ post.title }}
-      </router-link>
+      </a>
     </h2>
 
     <!-- Meta Info - Centered -->
@@ -48,12 +53,17 @@
         </svg>
         {{ post.favorites_count || 0 }} 收藏
       </span>
-      <router-link :to="`/post/${post.id}#comments`" class="flex items-center gap-1 px-2 py-1 rounded text-white hover:!bg-red-500 transition-all duration-300" style="background-color: rgba(0, 0, 0, 0.6);">
+      <a 
+        @click.prevent="openInNewTab(`/post/${post.id}#comments`)"
+        href="#" 
+        class="flex items-center gap-1 px-2 py-1 rounded text-white hover:!bg-red-500 transition-all duration-300 cursor-pointer" 
+        style="background-color: rgba(0, 0, 0, 0.6);"
+      >
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
         {{ post.comments_count || 0 }} 评论
-      </router-link>
+      </a>
     </div>
 
     <!-- Cover Image Box with Overlay Description -->
@@ -61,12 +71,13 @@
       <div 
         class="inner-image-box block w-full h-full relative overflow-hidden rounded"
         style="background: rgba(255, 255, 255, 0.25); box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.25);"
+        @mouseenter="isHovering = true"
+        @mouseleave="isHovering = false"
       >
-        <router-link 
-          :to="`/post/${post.id}`" 
-          class="block w-full h-full relative"
-          @mouseenter.native="isHovering = true"
-          @mouseleave.native="isHovering = false"
+        <a 
+          @click.prevent="openInNewTab(`/post/${post.id}`)"
+          href="#" 
+          class="block w-full h-full relative cursor-pointer"
         >
           <img
             v-if="post.cover_image"
@@ -86,11 +97,11 @@
           >
             <div class="overlay-bg absolute inset-0 bg-gray-800/60">
             </div>
-            <div class="overlay-content absolute inset-0 p-4 overflow-auto">
-              <div class="text-base text-white leading-relaxed max-w-none rich-content" v-html="getRichContent(post.content)"></div>
+            <div class="overlay-content absolute inset-0 p-4 overflow-hidden">
+              <div class="text-lg text-white leading-relaxed max-w-none rich-content description-text" v-html="getRichContent(post.content)"></div>
             </div>
           </div>
-        </router-link>
+        </a>
       </div>
     </div>
   </article>
@@ -98,6 +109,15 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useScrollAnimation } from '../composables/useScrollAnimation'
+
+const router = useRouter()
+
+const openInNewTab = (path) => {
+  const routeData = router.resolve(path)
+  window.open(routeData.href, '_blank', 'noopener,noreferrer')
+}
 
 const props = defineProps({
   post: {
@@ -114,114 +134,40 @@ const hovering = ref(false)
 const isHovering = ref(false)
 const isHoveringImage = ref(false)
 const cardRef = ref(null)
-const hasEntered = ref(false)
-const isAnimating = ref(false)
-let animationTimeout = null
+
+// 使用统一的滚动动画管理
+const { registerElement } = useScrollAnimation({
+  showThreshold: -28, // 元素顶部距离视口底部视口高度时显示
+  hideThreshold: 12, // 元素顶部距离视口底部视口高度时隐藏
+  onShow: (element, isInitial) => {
+    if (!element) return
+    
+    if (isInitial) {
+      // 初始加载时在视口内，直接显示不播放动画
+      element.classList.remove('card-exit', 'card-enter')
+      element.classList.add('card-no-animation')
+    } else {
+      // 滚动时显示，播放动画
+      element.classList.remove('card-exit', 'card-no-animation', 'card-enter')
+      element.offsetWidth // 强制重排
+      requestAnimationFrame(() => {
+        element.classList.add('card-enter')
+      })
+    }
+  },
+  onHide: (element) => {
+    if (!element) return
+    
+    // 播放退出动画
+    element.classList.remove('card-enter', 'card-no-animation')
+    element.classList.add('card-exit')
+  }
+})
 
 onMounted(() => {
-  if (!cardRef.value) return
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        const rect = entry.boundingClientRect
-        const viewportHeight = window.innerHeight
-        
-        if (entry.isIntersecting) {
-          // Entering viewport
-          if (!hasEntered.value) {
-            // First time entering
-            if (rect.top <= 0 && rect.bottom >= viewportHeight) {
-              // Already fully visible on page load: show immediately without animation
-              if (cardRef.value) {
-                cardRef.value.classList.remove('card-exit', 'card-enter')
-                cardRef.value.classList.add('card-no-animation')
-                hasEntered.value = true
-              }
-            } else {
-              // Entering from bottom: play enter animation (rootMargin controls when this triggers)
-              if (cardRef.value && !isAnimating.value) {
-                isAnimating.value = true
-                cardRef.value.classList.remove('card-exit', 'card-no-animation', 'card-enter')
-                cardRef.value.offsetWidth
-                requestAnimationFrame(() => {
-                  if (cardRef.value) {
-                    cardRef.value.classList.add('card-enter')
-                    hasEntered.value = true
-                    animationTimeout = setTimeout(() => {
-                      isAnimating.value = false
-                    }, 800)
-                  }
-                })
-              }
-            }
-          } else {
-            // Re-entering viewport
-            if (rect.top > 0) {
-              // Re-entering from bottom: play enter animation (rootMargin controls when)
-              if (cardRef.value && !isAnimating.value) {
-                isAnimating.value = true
-                cardRef.value.classList.remove('card-exit', 'card-no-animation', 'card-enter')
-                cardRef.value.offsetWidth
-                requestAnimationFrame(() => {
-                  if (cardRef.value) {
-                    cardRef.value.classList.add('card-enter')
-                    animationTimeout = setTimeout(() => {
-                      isAnimating.value = false
-                    }, 800)
-                  }
-                })
-              }
-            } else {
-              // Re-entering from top: no animation
-              if (cardRef.value && !isAnimating.value) {
-                cardRef.value.classList.remove('card-exit', 'card-enter')
-                cardRef.value.classList.add('card-no-animation')
-              }
-            }
-          }
-        } else {
-          // Leaving viewport - determine direction based on element position
-          const elementCenter = rect.top + rect.height / 2
-          
-          if (elementCenter < viewportHeight / 2) {
-            // Element center is in upper half - leaving from top (scrolling down)
-            // Keep visible without animation
-            if (cardRef.value && !isAnimating.value) {
-              cardRef.value.classList.remove('card-exit', 'card-enter')
-              cardRef.value.classList.add('card-no-animation')
-            }
-          } else {
-            // Element center is in lower half - leaving from bottom (scrolling up)
-            // Play exit animation
-            if (cardRef.value && !isAnimating.value) {
-              isAnimating.value = true
-              cardRef.value.classList.remove('card-enter', 'card-no-animation')
-              cardRef.value.classList.add('card-exit')
-              animationTimeout = setTimeout(() => {
-                isAnimating.value = false
-              }, 600)
-            }
-          }
-        }
-      })
-    },
-      {
-        threshold: 0.1,
-        rootMargin: '0px 0px 300px 0px'
-      }
-  )
-
-  observer.observe(cardRef.value)
-
-  onUnmounted(() => {
-    if (cardRef.value) {
-      observer.unobserve(cardRef.value)
-    }
-    if (animationTimeout) {
-      clearTimeout(animationTimeout)
-    }
-  })
+  if (cardRef.value) {
+    registerElement(cardRef.value)
+  }
 })
 
 const getRichContent = (htmlContent) => {
@@ -257,7 +203,7 @@ const formatDateTime = (dateString) => {
   filter: brightness(1.3);
 }
 
-.image-container:hover .image-zoom {
+.inner-image-box:hover .image-zoom {
   transform: scale(1.1);
 }
 
@@ -316,6 +262,44 @@ const formatDateTime = (dateString) => {
 .description-overlay :deep(.rich-content img) {
   max-width: 100%;
   height: auto;
+}
+
+/* Title自动换行并居中 */
+.title-link {
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-word;
+  text-align: center;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* 描述文本截断（使用多行省略） */
+.description-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 8; /* 显示最多8行 */
+  line-clamp: 8; /* 标准属性 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.6;
+}
+
+.description-text :deep(*) {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.description-text :deep(p) {
+  display: inline;
+  margin: 0;
+}
+
+.description-text :deep(br) {
+  display: block;
+  content: "";
+  margin-top: 0.5em;
 }
 
 /* Card animation states - Flip inward from behind the screen (rotateX) */

@@ -5,6 +5,7 @@ import PostDetail from '../pages/PostDetail.vue'
 import Category from '../pages/Category.vue'
 import Search from '../pages/Search.vue'
 import Profile from '../pages/Profile.vue'
+import Tools from '../pages/Tools.vue'
 import AdminDashboard from '../pages/Admin/AdminDashboard.vue'
 import PostEdit from '../pages/Admin/PostEdit.vue'
 
@@ -34,6 +35,12 @@ const routes = [
     name: 'Profile',
     component: Profile,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/tools',
+    name: 'Tools',
+    component: Tools,
+    meta: { hideSidebar: true }
   },
   {
     path: '/admin',

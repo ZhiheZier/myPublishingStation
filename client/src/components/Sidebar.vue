@@ -8,7 +8,6 @@
     <div 
       ref="searchWidget"
       class="widget-initial bg-white/30 rounded shadow-lg p-2 hover:bg-white/50 transition-all duration-300 overflow-hidden sidebar-widget" 
-      :class="{ 'widget-animate': widgetStates.search }"
       style="max-width: 100%;"
     >
       <form @submit.prevent="handleSearch">
@@ -45,7 +44,6 @@
     <div 
       ref="loginWidget"
       class="widget-initial-flip"
-      :class="{ 'widget-animate-flip': widgetStates.login }"
     >
       <LoginForm v-if="!authStore.user" />
     </div>
@@ -53,7 +51,6 @@
       v-if="authStore.user"
       ref="userWidget"
       class="widget-initial-flip bg-white/30 rounded shadow-lg p-4 pb-0 hover:bg-white/50 transition-all duration-300 overflow-hidden sidebar-widget" 
-      :class="{ 'widget-animate-flip': widgetStates.user }"
       style="max-width: 100%;"
     >
       <p class="text-sm font-semibold text-white rounded-t px-3 py-1.5 mb-0 -mx-4 -mt-4 flex items-center gap-2" style="background-color: rgba(0, 0, 0, 0.6);">
@@ -108,7 +105,6 @@
     <div 
       ref="recentPostsWidget"
       class="widget-initial bg-white/30 rounded shadow-lg p-4 pb-0 hover:bg-white/50 transition-all duration-300 overflow-hidden sidebar-widget" 
-      :class="{ 'widget-animate': widgetStates.recentPosts }"
       style="max-width: 100%;"
     >
       <h3 class="text-sm font-semibold text-white rounded-t px-3 py-1.5 mb-0 -mx-4 -mt-4 flex items-center gap-2" style="background-color: rgba(0, 0, 0, 0.6);">
@@ -135,7 +131,6 @@
     <div 
       ref="recentCommentsWidget"
       class="widget-initial bg-white/30 rounded shadow-lg p-4 pb-0 hover:bg-white/50 transition-all duration-300 sidebar-widget" 
-      :class="{ 'widget-animate': widgetStates.recentComments }"
       style="max-width: 100%; position: relative; z-index: 100; overflow: visible;"
     >
       <h3 class="text-sm font-semibold text-white rounded-t px-3 py-1.5 mb-0 -mx-4 -mt-4 flex items-center gap-2" style="background-color: rgba(0, 0, 0, 0.6);">
@@ -191,7 +186,6 @@
     <div 
       ref="randomPostsWidget"
       class="widget-initial bg-white/30 rounded shadow-lg p-4 pb-0 hover:bg-white/50 transition-all duration-300 overflow-hidden sidebar-widget" 
-      :class="{ 'widget-animate': widgetStates.randomPosts }"
       style="max-width: 100%;"
     >
       <h3 class="text-sm font-semibold text-white rounded-t px-3 py-1.5 mb-0 -mx-4 -mt-4 flex items-center gap-2" style="background-color: rgba(0, 0, 0, 0.6);">
@@ -218,7 +212,6 @@
     <div 
       ref="categoriesWidget"
       class="widget-initial bg-white/30 rounded shadow-lg p-4 hover:bg-white/50 transition-all duration-300 overflow-hidden sidebar-widget" 
-      :class="{ 'widget-animate': widgetStates.categories }"
       style="max-width: 100%;"
     >
       <h3 class="text-sm font-semibold text-white rounded-t px-3 py-1.5 mb-3 -mx-4 -mt-4 flex items-center gap-2" style="background-color: rgba(0, 0, 0, 0.6);">
@@ -247,6 +240,7 @@ import { useRouter } from 'vue-router'
 import { getTags, getPosts, getRecentComments, getRandomPosts } from '../api'
 import { useAuthStore } from '../stores/auth'
 import LoginForm from './LoginForm.vue'
+import { useScrollAnimation } from '../composables/useScrollAnimation'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -256,33 +250,6 @@ const recentPosts = ref([])
 const recentComments = ref([])
 const randomPosts = ref([])
 const isContentLoaded = ref(false)
-const widgetStates = ref({
-  search: false,
-  login: false,
-  user: false,
-  categories: false,
-  recentPosts: false,
-  recentComments: false,
-  randomPosts: false
-})
-const widgetAnimating = ref({
-  search: false,
-  login: false,
-  user: false,
-  categories: false,
-  recentPosts: false,
-  recentComments: false,
-  randomPosts: false
-})
-const widgetHasEntered = ref({
-  search: false,
-  login: false,
-  user: false,
-  categories: false,
-  recentPosts: false,
-  recentComments: false,
-  randomPosts: false
-})
 const searchWidget = ref(null)
 const loginWidget = ref(null)
 const userWidget = ref(null)
@@ -290,8 +257,52 @@ const categoriesWidget = ref(null)
 const recentPostsWidget = ref(null)
 const recentCommentsWidget = ref(null)
 const randomPostsWidget = ref(null)
-const isFirstLoad = ref(true)
-const animationTimeouts = {}
+  // 使用统一的滚动动画管理（侧边栏widget使用较小的阈值，因为它们更小）
+const { registerElement: registerWidget, checkAllInitialState } = useScrollAnimation({
+  showThreshold: -15, // 元素顶部距离视口底部视口高度时显示
+  hideThreshold: 15, // 元素顶部距离视口底部视口高度时隐藏
+  onShow: (element, isInitial) => {
+    if (!element) return
+    
+    // 从 data 属性读取 isFlip 信息，这样更可靠
+    const isFlipWidget = element.dataset.isFlip === 'true'
+    
+    if (isInitial) {
+      // 初始加载时在视口内，直接显示不播放动画
+      element.classList.remove(
+        'widget-initial-flip',
+        'widget-initial',
+        'widget-exit', 
+        'widget-exit-flip',
+        'widget-animate',
+        'widget-animate-flip'
+      )
+      element.style.opacity = '1'
+      element.style.transform = isFlipWidget ? 'perspective(1000px) rotateY(0deg)' : 'translateY(0)'
+    } else {
+      // 滚动时显示，播放动画
+      element.classList.remove(
+        'widget-initial-flip',
+        'widget-initial',
+        'widget-exit', 
+        'widget-exit-flip', 
+        'widget-animate', 
+        'widget-animate-flip'
+      )
+      element.offsetWidth // 强制重排
+      element.classList.add(isFlipWidget ? 'widget-animate-flip' : 'widget-animate')
+    }
+  },
+  onHide: (element) => {
+    if (!element) return
+    
+    // 从 data 属性读取 isFlip 信息
+    const isFlipWidget = element.dataset.isFlip === 'true'
+    // 播放退出动画
+    element.classList.remove('widget-animate', 'widget-animate-flip')
+    element.classList.add(isFlipWidget ? 'widget-exit-flip' : 'widget-exit')
+  }
+})
 
 onMounted(async () => {
   // Load all content first
@@ -311,159 +322,48 @@ onMounted(async () => {
   await Promise.all(promises)
   isContentLoaded.value = true
   
-  // Wait for next tick to ensure DOM is rendered
+  // Wait for next tick to ensure DOM is rendered (after content loaded)
   await nextTick()
   
-  // Setup Intersection Observer for each widget
-  const viewportHeight = window.innerHeight
+  // 注册所有widget到滚动动画管理器
+  // 管理器会自动判断初始状态，在视口内的会立即显示
   const widgets = [
-    { ref: searchWidget, key: 'search' },
-    { ref: loginWidget, key: 'login' },
-    { ref: userWidget, key: 'user' },
-    { ref: categoriesWidget, key: 'categories' },
-    { ref: recentPostsWidget, key: 'recentPosts' },
-    { ref: recentCommentsWidget, key: 'recentComments' },
-    { ref: randomPostsWidget, key: 'randomPosts' }
+    { ref: searchWidget, isFlip: false },
+    { ref: loginWidget, isFlip: true },
+    { ref: userWidget, isFlip: true },
+    { ref: categoriesWidget, isFlip: false },
+    { ref: recentPostsWidget, isFlip: false },
+    { ref: recentCommentsWidget, isFlip: false },
+    { ref: randomPostsWidget, isFlip: false }
   ]
   
-  const observers = []
-  
-  widgets.forEach(({ ref: widgetRef, key }) => {
+  widgets.forEach(({ ref: widgetRef, isFlip }) => {
     if (widgetRef.value) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            const rect = entry.boundingClientRect
-            const isFlipWidget = key === 'login' || key === 'user'
-            
-            if (entry.isIntersecting) {
-              // Entering viewport
-              if (!widgetHasEntered.value[key]) {
-                // First time entering
-                if (isFirstLoad.value || (rect.top <= 0 && rect.bottom >= viewportHeight)) {
-                  // Already fully visible on page load: show immediately
-                  if (widgetRef.value && !widgetAnimating.value[key]) {
-                    widgetRef.value.classList.remove(
-                      isFlipWidget ? 'widget-initial-flip' : 'widget-initial',
-                      'widget-exit', 
-                      'widget-exit-flip',
-                      'widget-animate',
-                      'widget-animate-flip'
-                    )
-                    widgetRef.value.style.opacity = '1'
-                    widgetRef.value.style.transform = isFlipWidget ? 'perspective(1000px) rotateY(0deg)' : 'translateY(0)'
-                    widgetStates.value[key] = false
-                    widgetHasEntered.value[key] = true
-                  }
-                } else if (rect.top > 0) {
-                  // Entering from bottom (even far away due to large rootMargin): play enter animation
-                  if (widgetRef.value && !widgetAnimating.value[key]) {
-                    widgetAnimating.value[key] = true
-                    widgetRef.value.classList.remove(
-                      'widget-exit', 
-                      'widget-exit-flip', 
-                      'widget-animate', 
-                      'widget-animate-flip'
-                    )
-                    void widgetRef.value.offsetWidth
-                    widgetRef.value.classList.add(isFlipWidget ? 'widget-animate-flip' : 'widget-animate')
-                    widgetStates.value[key] = true
-                    widgetHasEntered.value[key] = true
-                    animationTimeouts[key] = setTimeout(() => {
-                      widgetAnimating.value[key] = false
-                    }, 600)
-                  }
-                }
-              } else {
-                // Re-entering viewport
-                if (rect.top > 0) {
-                  // Re-entering from bottom: play enter animation
-                  if (widgetRef.value && !widgetAnimating.value[key]) {
-                    widgetAnimating.value[key] = true
-                    widgetRef.value.classList.remove(
-                      'widget-exit', 
-                      'widget-exit-flip', 
-                      'widget-animate', 
-                      'widget-animate-flip'
-                    )
-                    void widgetRef.value.offsetWidth
-                    widgetRef.value.classList.add(isFlipWidget ? 'widget-animate-flip' : 'widget-animate')
-                    widgetStates.value[key] = true
-                    animationTimeouts[key] = setTimeout(() => {
-                      widgetAnimating.value[key] = false
-                    }, 600)
-                  }
-                } else {
-                  // Re-entering from top: no animation
-                  if (widgetRef.value && !widgetAnimating.value[key]) {
-                    widgetRef.value.classList.remove(
-                      isFlipWidget ? 'widget-initial-flip' : 'widget-initial',
-                      'widget-exit', 
-                      'widget-exit-flip',
-                      'widget-animate',
-                      'widget-animate-flip'
-                    )
-                    widgetRef.value.style.opacity = '1'
-                    widgetRef.value.style.transform = isFlipWidget ? 'perspective(1000px) rotateY(0deg)' : 'translateY(0)'
-                    widgetStates.value[key] = false
-                  }
-                }
-              }
-            } else {
-              // Leaving viewport - determine direction based on element position
-              const elementCenter = rect.top + rect.height / 2
-              
-              if (elementCenter < viewportHeight / 2) {
-                // Element center is in upper half - leaving from top (scrolling down)
-                // Keep visible without animation
-                if (widgetRef.value && !widgetAnimating.value[key]) {
-                  widgetRef.value.classList.remove(
-                    isFlipWidget ? 'widget-initial-flip' : 'widget-initial',
-                    'widget-exit', 
-                    'widget-exit-flip',
-                    'widget-animate',
-                    'widget-animate-flip'
-                  )
-                  widgetRef.value.style.opacity = '1'
-                  widgetRef.value.style.transform = isFlipWidget ? 'perspective(1000px) rotateY(0deg)' : 'translateY(0)'
-                }
-              } else {
-                // Element center is in lower half - leaving from bottom (scrolling up)
-                // Play exit animation
-                if (widgetRef.value && !widgetAnimating.value[key]) {
-                  widgetAnimating.value[key] = true
-                  widgetRef.value.classList.remove('widget-animate', 'widget-animate-flip')
-                  widgetRef.value.classList.add(isFlipWidget ? 'widget-exit-flip' : 'widget-exit')
-                  animationTimeouts[key] = setTimeout(() => {
-                    widgetAnimating.value[key] = false
-                  }, 600)
-                }
-              }
-            }
-          })
-        },
-        {
-          threshold: 0.1,
-          rootMargin: '0px 0px 20px 0px' 
-        }
-      )
+      // 使用 data 属性保存 isFlip 信息，确保后续能正确识别
+      widgetRef.value.dataset.isFlip = isFlip ? 'true' : 'false'
       
-      observer.observe(widgetRef.value)
-      observers.push(observer)
+      // 确保元素有正确的初始类（隐藏状态）
+      if (!widgetRef.value.classList.contains('widget-initial') && !widgetRef.value.classList.contains('widget-initial-flip')) {
+        if (isFlip) {
+          widgetRef.value.classList.add('widget-initial-flip')
+        } else {
+          widgetRef.value.classList.add('widget-initial')
+        }
+      }
+      // 注册到滚动动画管理器（此时元素是隐藏状态）
+      registerWidget(widgetRef.value)
     }
   })
   
-  // Mark first load as complete after animation
-  if (isFirstLoad.value) {
-    setTimeout(() => {
-      isFirstLoad.value = false
-    }, 600)
-  }
-  
-  onUnmounted(() => {
-    observers.forEach(observer => observer.disconnect())
-    Object.values(animationTimeouts).forEach(timeout => clearTimeout(timeout))
-  })
+  // 所有元素注册完成后，统一触发动画
+  // 步骤：
+  // 1. 所有widget（无论是否在视口内）都播放进入动画
+  // 2. 动画完成后，根据每个widget的顶部到浏览器顶部的距离（rect.top）判断是否在视口内
+  // 3. 不在视口内的widget播放退出动画并隐藏
+  // 4. 在视口内的widget保持显示状态
+  setTimeout(() => {
+    checkAllInitialState(false, true) // animateAllThenHide=true：所有元素播放动画，然后不在视口内的隐藏
+  }, 100)
 })
 
 const handleSearch = () => {
@@ -557,6 +457,7 @@ const formatDate = (dateString) => {
 
 .widget-animate-flip {
   animation: flipIn 0.6s ease-out forwards !important;
+  transform-origin: center center;
 }
 
 .widget-exit {
@@ -565,6 +466,7 @@ const formatDate = (dateString) => {
 
 .widget-exit-flip {
   animation: flipExit 0.6s ease-in forwards !important;
+  transform-origin: center center;
 }
 
 .widget-initial:not(.widget-animate) {

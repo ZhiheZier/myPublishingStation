@@ -999,6 +999,95 @@ app.delete('/api/admin/users/:id', verifyToken, requireAdmin, (req, res) => {
   });
 });
 
+// Get background images from lolicon API (filtered for landscape images)
+app.get('/api/background-images', async (req, res) => {
+  try {
+    const response = await fetch('https://api.lolicon.app/setu/v2?num=20&size=regular&r18=0&excludeAI=true');
+    const data = await response.json();
+    
+    if (!data.data || !Array.isArray(data.data)) {
+      return res.status(500).json({ error: 'Invalid API response' });
+    }
+    
+    // Filter for landscape images (width > height)
+    const landscapeImages = data.data
+      .filter(item => item.width > item.height)
+      .map(item => ({
+        url: item.urls?.regular || item.urls?.original || '',
+        width: item.width,
+        height: item.height
+      }))
+      .filter(item => item.url); // Remove empty URLs
+    
+    // Check which images are accessible (not 404)
+    const accessibleImages = [];
+    const checkPromises = landscapeImages.map(async (item) => {
+      try {
+        // 使用GET请求检查，添加浏览器请求头来避免被服务器拒绝
+        const response = await fetch(item.url, { 
+          method: 'GET',
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.pixiv.net/',
+            'Range': 'bytes=0-511' // 只请求前512字节
+          }
+        });
+        
+        // 如果返回404，直接排除
+        if (response.status === 404) {
+          console.log(`Image 404: ${item.url}`);
+          return null;
+        }
+        
+        // 检查Content-Type，如果是HTML，说明返回的是错误页面，应该排除
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('text/html')) {
+          console.log(`Image returns HTML (likely 404 page): ${item.url}`);
+          return null;
+        }
+        
+        // 检查响应体的开头，如果是HTML标签（如<!DOCTYPE或<html），说明是错误页面
+        if (response.status === 200 || response.status === 206) {
+          const buffer = await response.arrayBuffer();
+          const text = new TextDecoder('utf-8', { fatal: false }).decode(buffer.slice(0, 100));
+          const trimmedText = text.trim().toLowerCase();
+          
+          if (trimmedText.startsWith('<!doctype') || 
+              trimmedText.startsWith('<html') || 
+              trimmedText.startsWith('<h1')) {
+            console.log(`Image returns HTML content (likely 404 page): ${item.url}`);
+            return null;
+          }
+          
+          // 检查Content-Type应该是图片类型，或者如果没有Content-Type但内容不是HTML，也允许
+          if (contentType.startsWith('image/') || (!contentType && !trimmedText.startsWith('<'))) {
+            return item;
+          }
+        }
+        
+        console.log(`Image not accessible (status ${response.status}, type ${contentType}): ${item.url}`);
+        return null;
+      } catch (error) {
+        // 如果 fetch 失败，可能是因为服务器拒绝了请求，但图片实际上是可访问的
+        // 这种情况下，我们仍然包含这个图片，让浏览器去验证
+        console.log(`Image fetch error (but may be accessible in browser): ${item.url} - ${error.message}`);
+        // 仍然返回这个图片，因为用户说能看到图片
+        return item;
+      }
+    });
+    
+    const results = await Promise.all(checkPromises);
+    accessibleImages.push(...results.filter(item => item !== null));
+    
+    res.json({ images: accessibleImages });
+  } catch (error) {
+    console.error('Failed to fetch background images:', error);
+    res.status(500).json({ error: 'Failed to fetch background images' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

@@ -117,4 +117,9 @@ export const getTags = () => {
   return api.get('/tags');
 };
 
+// Background Images API
+export const getBackgroundImages = () => {
+  return api.get('/background-images');
+};
+
 export default api;

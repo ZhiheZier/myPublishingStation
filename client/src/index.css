@@ -65,6 +65,13 @@
   z-index: 1;
 }
 
+/* 全特效版背景遮罩（在Layout组件中已经通过before伪元素实现） */
+.full-theme-background {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
 @layer base {
   body {
     @apply text-gray-900;

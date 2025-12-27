@@ -255,6 +255,13 @@ GET /api/admin/posts
 Headers: Authorization: Bearer <token>
 ```
 
+### 背景图片相关
+```bash
+# 获取背景图片（横屏图片，过滤404）
+GET /api/background-images
+Returns: { images: [{ url, width, height }] }
+```
+
 ## 数据库结构
 
 ### users 表

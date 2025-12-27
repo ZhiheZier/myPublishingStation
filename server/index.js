@@ -5,22 +5,35 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3003;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increase limit for rich text content
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+const uploadsDir = join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+app.use('/uploads', express.static(uploadsDir));
 
 // Database setup
 const dbPath = join(__dirname, 'blog.db');
 const db = new sqlite3.Database(dbPath);
+db.serialize(() => {
+  db.run('CREATE TABLE IF NOT EXISTS art_albums (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, title TEXT, description TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+  db.run('CREATE TABLE IF NOT EXISTS artworks (id INTEGER PRIMARY KEY AUTOINCREMENT, album_id INTEGER, title TEXT, image_url TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+  db.run('CREATE TABLE IF NOT EXISTS artwork_tags (artwork_id INTEGER, tag_id INTEGER)');
+  db.run('CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)');
+  db.run('CREATE TABLE IF NOT EXISTS album_tags (album_id INTEGER, tag_id INTEGER)');
+  db.run('CREATE TABLE IF NOT EXISTS artwork_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, artwork_id INTEGER, user_id INTEGER, content TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_album_user_title ON art_albums(user_id, title)');
+});
 
 // Helper function to verify JWT token
 const verifyToken = (req, res, next) => {
@@ -1088,6 +1101,177 @@ app.get('/api/background-images', async (req, res) => {
   }
 });
 
+app.get('/api/art/albums', verifyToken, (req, res) => {
+  const userId = req.user.id;
+  db.all('SELECT id, title, description, created_at FROM art_albums WHERE user_id = ? ORDER BY created_at DESC', [userId], (err, rows) => {
+    if (err) { res.status(500).json({ error: err.message }); return; }
+    const tasks = (rows || []).map(a => new Promise((resolve) => {
+      db.all('SELECT t.id, t.name FROM album_tags at JOIN tags t ON at.tag_id = t.id WHERE at.album_id = ?', [a.id], (e, ts) => {
+        db.get('SELECT image_url FROM artworks WHERE album_id = ? ORDER BY created_at DESC LIMIT 1', [a.id], (e2, coverRow) => {
+          resolve({ ...a, tags: ts || [], cover_url: coverRow ? coverRow.image_url : null });
+        });
+      });
+    }));
+    Promise.all(tasks).then(list => res.json(list));
+  });
+});
+
+app.post('/api/art/albums', verifyToken, (req, res) => {
+  const userId = req.user.id;
+  const { title, description, tags = [] } = req.body;
+  if (!title) { res.status(400).json({ error: 'Title required' }); return; }
+  db.get('SELECT id FROM art_albums WHERE user_id = ? AND title = ?', [userId, title], (errCheck, exists) => {
+    if (errCheck) { res.status(500).json({ error: errCheck.message }); return; }
+    if (exists) { res.status(409).json({ error: 'Album title already exists' }); return; }
+    db.run('INSERT INTO art_albums (user_id, title, description) VALUES (?, ?, ?)', [userId, title, description || ''], function(err) {
+      if (err) { res.status(500).json({ error: err.message }); return; }
+      const albumId = this.lastID;
+      const upsertTags = Array.isArray(tags) ? tags : [];
+      const doTag = (name) => new Promise((resolve) => {
+        db.get('SELECT id FROM tags WHERE name = ?', [name], (e, row) => {
+          if (row && row.id) resolve(row.id);
+          else {
+            db.run('INSERT INTO tags (name) VALUES (?)', [name], function(e2){ resolve(this.lastID); });
+          }
+        });
+      });
+      Promise.all(upsertTags.map(doTag)).then(ids => {
+        const inserts = ids.map(tid => new Promise((r) => {
+          db.run('INSERT INTO album_tags (album_id, tag_id) VALUES (?, ?)', [albumId, tid], () => r());
+        }));
+        Promise.all(inserts).then(() => res.json({ id: albumId, title, description: description || '', tags: upsertTags.map((n,i)=>({ id: ids[i], name: n })) }));
+      });
+    });
+  });
+});
+
+app.get('/api/art/albums/:id/artworks', verifyToken, (req, res) => {
+  const albumId = req.params.id;
+  const userId = req.user.id;
+  db.get('SELECT id FROM art_albums WHERE id = ? AND user_id = ?', [albumId, userId], (err, album) => {
+    if (err) { res.status(500).json({ error: err.message }); return; }
+    if (!album) { res.status(404).json({ error: 'Album not found' }); return; }
+    db.all('SELECT id, title, image_url, created_at FROM artworks WHERE album_id = ? ORDER BY created_at DESC', [albumId], (err2, arts) => {
+      if (err2) { res.status(500).json({ error: err2.message }); return; }
+      const tasks = arts.map(a => new Promise((resolve) => {
+        db.all('SELECT t.id, t.name FROM artwork_tags at JOIN tags t ON at.tag_id = t.id WHERE at.artwork_id = ?', [a.id], (e, ts) => {
+          resolve({ ...a, tags: ts || [] });
+        });
+      }));
+      Promise.all(tasks).then(list => res.json(list));
+    });
+  });
+});
+
+app.post('/api/art/albums/:id/artworks', verifyToken, async (req, res) => {
+  const albumId = req.params.id;
+  const userId = req.user.id;
+  const { title, imageUrl, base64Data, tags = [] } = req.body;
+  if (!title) { res.status(400).json({ error: 'Title required' }); return; }
+  db.get('SELECT id FROM art_albums WHERE id = ? AND user_id = ?', [albumId, userId], async (err, album) => {
+    if (err) { res.status(500).json({ error: err.message }); return; }
+    if (!album) { res.status(404).json({ error: 'Album not found' }); return; }
+    let finalUrl = imageUrl || '';
+    try {
+      if (!finalUrl && base64Data && typeof base64Data === 'string' && base64Data.startsWith('data:')) {
+        const m = base64Data.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (!m) { res.status(400).json({ error: 'Invalid image data' }); return; }
+        const ext = m[1].split('/')[1];
+        const buf = Buffer.from(m[2], 'base64');
+        const fname = `art_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
+        const fpath = join(__dirname, 'uploads', fname);
+        fs.writeFileSync(fpath, buf);
+        finalUrl = `/uploads/${fname}`;
+      }
+      db.run('INSERT INTO artworks (album_id, title, image_url) VALUES (?, ?, ?)', [albumId, title, finalUrl], function(err2) {
+        if (err2) { res.status(500).json({ error: err2.message }); return; }
+        const artworkId = this.lastID;
+        const upsertTags = Array.isArray(tags) ? tags : [];
+        const doTag = (name) => new Promise((resolve) => {
+          db.get('SELECT id FROM tags WHERE name = ?', [name], (e, row) => {
+            if (row && row.id) resolve(row.id);
+            else {
+              db.run('INSERT INTO tags (name) VALUES (?)', [name], function(e2){ resolve(this.lastID); });
+            }
+          });
+        });
+        Promise.all(upsertTags.map(doTag)).then(ids => {
+          const inserts = ids.map(tid => new Promise((r) => {
+            db.run('INSERT INTO artwork_tags (artwork_id, tag_id) VALUES (?, ?)', [artworkId, tid], () => r());
+          }));
+          Promise.all(inserts).then(() => res.json({ id: artworkId, title, image_url: finalUrl }));
+        });
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+});
+
+app.get('/api/art/artworks/:id/comments', (req, res) => {
+  const artworkId = req.params.id;
+  db.all(`SELECT ac.id, ac.content, ac.created_at, ac.user_id, u.username, u.avatar 
+          FROM artwork_comments ac 
+          LEFT JOIN users u ON ac.user_id = u.id 
+          WHERE ac.artwork_id = ? 
+          ORDER BY ac.created_at DESC`, [artworkId], (err, rows) => {
+    if (err) { res.status(500).json({ error: err.message }); return; }
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/art/artworks/:id/comments', verifyToken, (req, res) => {
+  const artworkId = req.params.id;
+  const userId = req.user.id;
+  const { content } = req.body;
+  if (!content || !content.trim()) { res.status(400).json({ error: 'Content required' }); return; }
+  db.run('INSERT INTO artwork_comments (artwork_id, user_id, content) VALUES (?, ?, ?)', [artworkId, userId, content.trim()], function(err) {
+    if (err) { res.status(500).json({ error: err.message }); return; }
+    res.json({ id: this.lastID });
+  });
+});
+
+app.delete('/api/art/artworks/:id', verifyToken, (req, res) => {
+  const artworkId = req.params.id;
+  db.get('SELECT a.id, a.album_id, a.image_url, al.user_id FROM artworks a JOIN art_albums al ON a.album_id = al.id WHERE a.id = ?', [artworkId], (err, art) => {
+    if (err) { res.status(500).json({ error: err.message }); return; }
+    if (!art) { res.status(404).json({ error: 'Artwork not found' }); return; }
+    if (art.user_id !== req.user.id) { res.status(403).json({ error: 'Forbidden' }); return; }
+    const fileRel = art.image_url && art.image_url.startsWith('/uploads/') ? join(__dirname, art.image_url.replace('/uploads/', 'uploads/')) : null;
+    db.run('DELETE FROM artwork_tags WHERE artwork_id = ?', [artworkId], (e1) => {
+      db.run('DELETE FROM artwork_comments WHERE artwork_id = ?', [artworkId], (e2) => {
+        db.run('DELETE FROM artworks WHERE id = ?', [artworkId], (e3) => {
+          try { if (fileRel && fs.existsSync(fileRel)) fs.unlinkSync(fileRel); } catch {}
+          res.json({ ok: true });
+        });
+      });
+    });
+  });
+});
+
+app.delete('/api/art/albums/:id', verifyToken, (req, res) => {
+  const albumId = req.params.id;
+  const userId = req.user.id;
+  db.get('SELECT id FROM art_albums WHERE id = ? AND user_id = ?', [albumId, userId], (err, album) => {
+    if (err) { res.status(500).json({ error: err.message }); return; }
+    if (!album) { res.status(404).json({ error: 'Album not found' }); return; }
+    db.all('SELECT id, image_url FROM artworks WHERE album_id = ?', [albumId], (e1, arts) => {
+      const files = (arts || []).map(a => a.image_url).filter(u => u && u.startsWith('/uploads/')).map(u => join(__dirname, u.replace('/uploads/', 'uploads/')));
+      db.run('DELETE FROM album_tags WHERE album_id = ?', [albumId], () => {
+        db.run('DELETE FROM artwork_tags WHERE artwork_id IN (SELECT id FROM artworks WHERE album_id = ?)', [albumId], () => {
+          db.run('DELETE FROM artwork_comments WHERE artwork_id IN (SELECT id FROM artworks WHERE album_id = ?)', [albumId], () => {
+            db.run('DELETE FROM artworks WHERE album_id = ?', [albumId], () => {
+              db.run('DELETE FROM art_albums WHERE id = ?', [albumId], () => {
+                files.forEach(fp => { try { if (fs.existsSync(fp)) fs.unlinkSync(fp); } catch {} });
+                res.json({ ok: true });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+});
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

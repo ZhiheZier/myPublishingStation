@@ -5,6 +5,7 @@ import { getBackgroundImages } from '../api'
 export const useThemeStore = defineStore('theme', () => {
   // 'simple' 去特效版, 'full' 全特效版
   const theme = ref(localStorage.getItem('theme') || 'simple')
+  const simpleBgMode = ref(localStorage.getItem('simpleBgMode') || 'light')
   
   // 背景图片列表（全特效版使用）
   const backgroundImages = ref([])
@@ -14,6 +15,7 @@ export const useThemeStore = defineStore('theme', () => {
 
   const isSimpleTheme = computed(() => theme.value === 'simple')
   const isFullTheme = computed(() => theme.value === 'full')
+  const isSimpleDark = computed(() => simpleBgMode.value === 'dark')
 
   const setTheme = (newTheme) => {
     if (newTheme === 'simple' || newTheme === 'full') {
@@ -26,6 +28,13 @@ export const useThemeStore = defineStore('theme', () => {
       } else {
         stopRotation()
       }
+    }
+  }
+
+  const setSimpleBgMode = (mode) => {
+    if (mode === 'light' || mode === 'dark') {
+      simpleBgMode.value = mode
+      localStorage.setItem('simpleBgMode', mode)
     }
   }
 
@@ -157,11 +166,14 @@ export const useThemeStore = defineStore('theme', () => {
 
   return {
     theme,
+    simpleBgMode,
     isSimpleTheme,
     isFullTheme,
+    isSimpleDark,
     backgroundImages,
     currentBackgroundIndex,
     setTheme,
+    setSimpleBgMode,
     loadBackgroundImages,
     getCurrentBackgroundImage,
     nextBackground,

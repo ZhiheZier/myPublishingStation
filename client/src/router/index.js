@@ -6,6 +6,12 @@ import Category from '../pages/Category.vue'
 import Search from '../pages/Search.vue'
 import Profile from '../pages/Profile.vue'
 import Tools from '../pages/Tools.vue'
+import Pomodoro from '../pages/Pomodoro.vue'
+import Diary from '../pages/Diary.vue'
+import Login from '../pages/Login.vue'
+import Register from '../pages/Register.vue'
+import Portfolio from '../pages/Portfolio.vue'
+import Album from '../pages/Album.vue'
 import AdminDashboard from '../pages/Admin/AdminDashboard.vue'
 import PostEdit from '../pages/Admin/PostEdit.vue'
 
@@ -41,6 +47,42 @@ const routes = [
     name: 'Tools',
     component: Tools,
     meta: { hideSidebar: true }
+  },
+  {
+    path: '/tools/diary',
+    name: 'Diary',
+    component: Diary,
+    meta: { hideSidebar: true }
+  },
+  {
+    path: '/tools/pomodoro',
+    name: 'Pomodoro',
+    component: Pomodoro,
+    meta: { hideSidebar: true }
+  },
+  {
+    path: '/tools/portfolio',
+    name: 'Portfolio',
+    component: Portfolio,
+    meta: { hideSidebar: true }
+  },
+  {
+    path: '/tools/portfolio/:id',
+    name: 'Album',
+    component: Album,
+    meta: { hideSidebar: true }
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login,
+    meta: { hideSidebar: true, fullscreen: true }
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: Register,
+    meta: { hideSidebar: true, fullscreen: true }
   },
   {
     path: '/admin',

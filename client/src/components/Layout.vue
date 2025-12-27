@@ -1,7 +1,11 @@
 <template>
   <div 
     class="min-h-screen flex flex-col"
-    :class="themeStore.isSimpleTheme ? 'starry-background' : 'full-theme-background'"
+    :class="[
+      themeStore.isSimpleTheme ? 'starry-background' : 'full-theme-background',
+      { 'dark-mode': themeStore.isSimpleDark }
+    ]"
+    :style="themeStore.isSimpleTheme ? simpleBgStyle : null"
   >
     <!-- Background images with fade transition -->
     <div 
@@ -25,7 +29,7 @@
     </div>
     <div class="content-wrapper flex flex-col min-h-screen">
       <!-- Header -->
-      <header class="border-b border-gray-200/20 sticky top-0 z-50 shadow-md" style="background-color: rgba(0, 0, 0, 0.6);">
+      <header v-if="!isFullscreen" class="border-b border-gray-200/20 sticky top-0 z-50 shadow-md" style="background-color: rgba(0, 0, 0, 0.6);">
         <div class="container-custom py-2">
           <div class="flex items-center justify-between">
             <!-- Logo and Title -->
@@ -104,36 +108,76 @@
                 </a>
               </nav>
             </div>
+            <div class="flex items-center gap-3">
+              <button
+                v-if="themeStore.isSimpleTheme"
+                class="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-white/20 border border-white/40 text-white"
+                @click="toggleSimpleBg"
+                title="切换背景色"
+              >
+                <svg v-if="themeStore.isSimpleDark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+              </button>
+              <div class="relative flex items-center gap-2" ref="userMenuRef">
+                <button
+                  class="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-gray-300 border border-white/40"
+                  @click="showUserMenu = !showUserMenu"
+                >
+                  <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" alt="Avatar" class="w-full h-full object-cover" />
+                  <svg v-else class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <span v-if="authStore.user" class="text-white text-sm px-2 py-1 rounded bg-white/10 border border-white/20">
+                  {{ authStore.user.username }}
+                </span>
+                <div
+                  v-if="showUserMenu"
+                  class="absolute right-0 top-full mt-2 bg-white/70 backdrop-blur-sm rounded-lg shadow-lg min-w-[160px] border border-white/70 z-50"
+                >
+                  <template v-if="!authStore.user">
+                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="router.push('/login')">登录</a>
+                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="router.push('/register')">注册</a>
+                  </template>
+                  <template v-else>
+                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="router.push('/profile')">设置</a>
+                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="handleLogout">退出</a>
+                  </template>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      <!-- Main Content - Two Column Layout or Single Column -->
-      <main class="flex-1 py-6">
-        <div class="container-custom">
-          <div class="flex gap-6">
-            <!-- Main Content Area -->
-            <div 
-              :class="hideSidebar ? 'w-full' : 'flex-1 min-w-0'"
-              :style="hideSidebar ? {} : { flex: '0 0 68%' }"
-            >
-              <slot />
-            </div>
-
-            <!-- Sidebar -->
-            <div 
-              v-if="!hideSidebar"
-              class="flex-shrink-0" 
-              style="flex: 0 0 30%; max-width: 30%; overflow: visible; position: relative; z-index: 40;"
-            >
-              <Sidebar />
+      <!-- Main Content -->
+      <main class="flex-1" :class="isFullscreen ? '' : 'py-6'">
+        <template v-if="isFullscreen">
+          <slot />
+        </template>
+        <template v-else>
+          <div class="container-custom">
+            <div class="flex gap-6">
+              <div 
+                :class="hideSidebar ? 'w-full' : 'flex-1 min-w-0'"
+                :style="hideSidebar ? {} : { flex: '0 0 68%' }"
+              >
+                <slot />
+              </div>
+              <div 
+                v-if="!hideSidebar"
+                class="flex-shrink-0" 
+                style="flex: 0 0 30%; max-width: 30%; overflow: visible; position: relative; z-index: 40;"
+              >
+                <Sidebar />
+              </div>
             </div>
           </div>
-        </div>
+        </template>
       </main>
 
       <!-- Footer -->
-      <footer class="bg-transparent mt-auto">
+      <footer v-if="!isFullscreen" class="bg-transparent mt-auto">
         <div class="container-custom py-6">
           <div class="text-center text-white text-sm">
             <p>© 2025 我的发布站. 使用 Vue + Express + SQLite 构建</p>
@@ -146,16 +190,27 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Sidebar from './Sidebar.vue'
 import { useThemeStore } from '../stores/theme'
+import { useAuthStore } from '../stores/auth'
 
 const themeStore = useThemeStore()
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 const showThemeMenu = ref(false)
+const showUserMenu = ref(false)
+const userMenuRef = ref(null)
+const simpleBgStyle = computed(() => {
+  return themeStore.isSimpleDark
+    ? { background: 'linear-gradient(135deg, #0f172a 0%, #1f2937 50%, #334155 100%)' }
+    : { background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%)' }
+})
 
 // Check if sidebar should be hidden based on route meta
 const hideSidebar = computed(() => route.meta.hideSidebar === true)
+const isFullscreen = computed(() => route.meta.fullscreen === true)
 
 const handleHomeClick = (event) => {
   // 无论当前在哪个页面，点击首页都触发重定向并重新加载
@@ -174,6 +229,26 @@ const switchTheme = (theme) => {
   // 切换主题后重新加载页面以确保所有组件应用新主题
   window.location.reload()
 }
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/')
+}
+
+const toggleSimpleBg = () => {
+  themeStore.setSimpleBgMode(themeStore.isSimpleDark ? 'light' : 'dark')
+}
+
+const handleDocClick = (e) => {
+  if (showUserMenu.value && userMenuRef.value && !userMenuRef.value.contains(e.target)) {
+    showUserMenu.value = false
+  }
+}
+onMounted(() => {
+  document.addEventListener('click', handleDocClick)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocClick)
+})
 
 // 初始化时，如果是全特效版，确保加载背景图片
 onMounted(async () => {

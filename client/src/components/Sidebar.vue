@@ -40,65 +40,16 @@
       </form>
     </div>
 
-    <!-- Login/User Widget -->
-    <div 
-      ref="loginWidget"
-      class="widget-initial-flip"
-    >
-      <LoginForm v-if="!authStore.user" />
+    <!-- Pomodoro Status or User Widget -->
+    <div ref="loginWidget" class="widget-initial-flip">
+      <PomodoroStatus v-if="!authStore.user" />
     </div>
     <div 
       v-if="authStore.user"
       ref="userWidget"
-      class="widget-initial-flip bg-white/30 rounded shadow-lg p-4 pb-0 hover:bg-white/50 transition-all duration-300 overflow-hidden sidebar-widget" 
-      style="max-width: 100%;"
+      class="widget-initial-flip"
     >
-      <p class="text-sm font-semibold text-white rounded-t px-3 py-1.5 mb-0 -mx-4 -mt-4 flex items-center gap-2" style="background-color: rgba(0, 0, 0, 0.6);">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-        欢迎!
-      </p>
-      <div class="flex items-center justify-center px-0 py-5 gap-4">
-        <div class="flex items-center gap-4">
-          <router-link
-            :to="authStore.user.role === 'admin' ? '/admin' : '/profile'"
-            class="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 transition-transform duration-500 hover:rotate-360 bg-gray-300"
-          >
-            <img
-              v-if="authStore.user.avatar"
-              :src="authStore.user.avatar"
-              alt="Avatar"
-              class="w-full h-full object-cover"
-            />
-            <svg
-              v-else
-              class="w-7 h-7 text-gray-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </router-link>
-          <router-link
-            :to="authStore.user.role === 'admin' ? '/admin' : '/profile'"
-            class="text-gray-900 font-medium text-base transition-colors duration-200 hover:text-red-500"
-          >
-            {{ authStore.user.username }}
-          </router-link>
-        </div>
-        <button
-          @click="authStore.logout()"
-          class="px-4 py-2 text-white rounded text-sm hover:bg-red-500 transition-colors"
-          style="background-color: rgba(0, 0, 0, 0.6);"
-        >
-          退出登录
-        </button>
-      </div>
+      <PomodoroStatus />
     </div>
 
     <!-- Recent Posts Widget -->
@@ -239,7 +190,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTags, getPosts, getRecentComments, getRandomPosts } from '../api'
 import { useAuthStore } from '../stores/auth'
-import LoginForm from './LoginForm.vue'
+import PomodoroStatus from './PomodoroStatus.vue'
 import { useScrollAnimation } from '../composables/useScrollAnimation'
 
 const router = useRouter()

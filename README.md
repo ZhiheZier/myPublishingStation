@@ -135,7 +135,7 @@ npm run client
 
 5. **访问应用**
 
-打开浏览器访问：http://localhost:3000
+打开浏览器访问：http://localhost:5174
 
 ## API 接口
 

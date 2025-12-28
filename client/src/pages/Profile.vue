@@ -55,7 +55,7 @@
             v-model="formData.username"
             type="text"
             required
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white"
             placeholder="请输入用户名"
           />
         </div>
@@ -124,7 +124,7 @@
               v-model="passwordForm.currentPassword"
               type="password"
               required
-              class="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              class="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white"
               placeholder="请输入当前密码"
             />
           </div>
@@ -138,7 +138,7 @@
               type="password"
               required
               minlength="6"
-              class="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              class="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white"
               placeholder="请输入新密码（至少6位）"
             />
           </div>
@@ -151,7 +151,7 @@
               v-model="passwordForm.confirmPassword"
               type="password"
               required
-              class="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              class="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white"
               placeholder="请再次输入新密码"
             />
           </div>

@@ -81,18 +81,11 @@ const tools = ref([
     onClick: () => router.push({ name: 'Portfolio' })
   },
   {
-    id: 10,
+    id: 3,
     name: '学习日记',
     description: '查看历史学习日记（来自番茄钟）',
     icon: null,
     onClick: () => router.push({ name: 'Diary' })
-  },
-  {
-    id: 3,
-    name: '工具 3',
-    description: '工具描述...',
-    icon: null,
-    onClick: null
   },
   {
     id: 4,
@@ -132,6 +125,13 @@ const tools = ref([
   {
     id: 9,
     name: '工具 9',
+    description: '工具描述...',
+    icon: null,
+    onClick: null
+  },
+  {
+    id: 10,
+    name: '工具 10',
     description: '工具描述...',
     icon: null,
     onClick: null

@@ -5,11 +5,13 @@ import PostDetail from '../pages/PostDetail.vue'
 import Category from '../pages/Category.vue'
 import Search from '../pages/Search.vue'
 import Profile from '../pages/Profile.vue'
+import Favorites from '../pages/Favorites.vue'
+import QnA from '../pages/QnA.vue'
+import Guestbook from '../pages/Guestbook.vue'
 import Tools from '../pages/Tools.vue'
 import Pomodoro from '../pages/Pomodoro.vue'
 import Diary from '../pages/Diary.vue'
-import Login from '../pages/Login.vue'
-import Register from '../pages/Register.vue'
+import Auth from '../pages/Auth.vue'
 import Portfolio from '../pages/Portfolio.vue'
 import Album from '../pages/Album.vue'
 import AdminDashboard from '../pages/Admin/AdminDashboard.vue'
@@ -41,6 +43,22 @@ const routes = [
     name: 'Profile',
     component: Profile,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/favorites',
+    name: 'Favorites',
+    component: Favorites,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/qna',
+    name: 'QnA',
+    component: QnA
+  },
+  {
+    path: '/guestbook',
+    name: 'Guestbook',
+    component: Guestbook
   },
   {
     path: '/tools',
@@ -75,13 +93,13 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login,
+    component: Auth,
     meta: { hideSidebar: true, fullscreen: true }
   },
   {
     path: '/register',
     name: 'Register',
-    component: Register,
+    component: Auth,
     meta: { hideSidebar: true, fullscreen: true }
   },
   {
@@ -110,11 +128,18 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   
+  // Wait for auth store to finish initialization
+  if (authStore.loading) {
+    await authStore.init()
+  }
+  
   if (to.meta.requiresAuth && !authStore.user) {
-    next('/')
+    // 保存当前路径，用于登录后重定向
+    sessionStorage.setItem('redirectAfterLogin', to.fullPath)
+    next('/login')
     return
   }
   

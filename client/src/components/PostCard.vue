@@ -10,7 +10,7 @@
     @mouseleave="hovering = false"
   >
     <!-- Title - Centered -->
-    <h2 class="text-2xl font-bold text-center mb-3">
+    <h2 class="text-3xl font-bold text-center mb-3">
       <a 
         @click.prevent="openInNewTab(`/post/${post.id}`)"
         href="#" 
@@ -97,8 +97,8 @@
           >
             <div class="overlay-bg absolute inset-0 bg-gray-800/60">
             </div>
-            <div class="overlay-content absolute inset-0 p-4 overflow-hidden">
-              <div class="text-lg text-white leading-relaxed max-w-none rich-content description-text" v-html="getRichContent(post.content)"></div>
+            <div class="overlay-content absolute inset-0 p-6 overflow-hidden">
+              <div class="text-2xl text-white leading-relaxed max-w-none description-text" v-html="getRichContent(post.content)"></div>
             </div>
           </div>
         </a>
@@ -243,6 +243,7 @@ const formatDateTime = (dateString) => {
   transform: translateY(0);
 }
 
+/* Description text - plain text only, no styles */
 .description-overlay :deep(.rich-content),
 .description-overlay :deep(.rich-content *),
 .description-overlay :deep(.rich-content p),
@@ -255,8 +256,23 @@ const formatDateTime = (dateString) => {
 .description-overlay :deep(.rich-content h5),
 .description-overlay :deep(.rich-content h6),
 .description-overlay :deep(.rich-content li),
-.description-overlay :deep(.rich-content a) {
+.description-overlay :deep(.rich-content a),
+.description-overlay :deep(.rich-content strong),
+.description-overlay :deep(.rich-content em),
+.description-overlay :deep(.rich-content u),
+.description-overlay :deep(.rich-content s) {
   color: white !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  text-decoration: none !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
 }
 
 .description-overlay :deep(.rich-content img) {
@@ -287,13 +303,26 @@ const formatDateTime = (dateString) => {
 
 .description-text :deep(*) {
   display: inline;
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  text-decoration: none !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  color: white !important;
 }
 
 .description-text :deep(p) {
   display: inline;
-  margin: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .description-text :deep(br) {

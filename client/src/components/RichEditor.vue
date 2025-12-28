@@ -73,6 +73,7 @@ watch(() => props.modelValue, (newValue) => {
 
 :deep(.ql-editor) {
   min-height: 400px;
+  color: #111827; /* text-gray-900 */
 }
 
 :deep(.ql-toolbar) {

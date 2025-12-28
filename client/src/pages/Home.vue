@@ -1,32 +1,18 @@
 <template>
   <div>
-    <!-- Personal Info Section -->
-    <div class="bg-white/30 rounded mb-6 p-6 transition-all duration-300" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);" @mouseenter="hoveringInfo = true" @mouseleave="hoveringInfo = false" :style="{ boxShadow: hoveringInfo ? '0 8px 24px rgba(0, 0, 0, 0.6)' : '0 4px 12px rgba(0, 0, 0, 0.4)' }">
-      <div class="grid grid-cols-2 gap-4 p-6">
-        <!-- Person 1 -->
-        <div class="flex items-center gap-3">
-          <div class="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-            <svg class="w-10 h-10 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <div class="flex-1">
-            <h4 class="text-base font-medium text-gray-900">用户名 1</h4>
-            <p class="text-sm text-gray-600">个人简介或标签</p>
-          </div>
-        </div>
-        
-        <!-- Person 2 -->
-        <div class="flex items-center gap-3">
-          <div class="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-            <svg class="w-10 h-10 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <div class="flex-1">
-            <h4 class="text-base font-medium text-gray-900">用户名 2</h4>
-            <p class="text-sm text-gray-600">个人简介或标签</p>
-          </div>
+    <!-- Announcement Section -->
+    <div v-if="announcementLoading" class="bg-white/30 rounded mb-6 p-6 transition-all duration-300" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);">
+      <div class="text-center py-4">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <p class="mt-2 text-gray-600 text-sm">加载中...</p>
+      </div>
+    </div>
+    <div v-else-if="announcement && announcement.content" class="bg-white/30 rounded mb-6 p-6 transition-all duration-300" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);" @mouseenter="hoveringAnnouncement = true" @mouseleave="hoveringAnnouncement = false" :style="{ boxShadow: hoveringAnnouncement ? '0 8px 24px rgba(0, 0, 0, 0.6)' : '0 4px 12px rgba(0, 0, 0, 0.4)' }">
+      <div class="p-6">
+        <h3 class="text-xl font-bold text-gray-900 mb-4 text-center">公告栏</h3>
+        <div class="text-gray-800 leading-relaxed rich-content break-words overflow-wrap-anywhere" data-announcement v-html="announcement.content" style="word-wrap: break-word; word-break: break-word; overflow-wrap: anywhere;"></div>
+        <div v-if="announcement.updated_at" class="text-xs text-gray-500 mt-4 text-right">
+          更新时间: {{ formatDateTime(announcement.updated_at) }}
         </div>
       </div>
     </div>
@@ -40,11 +26,16 @@
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="flex justify-center items-center gap-2 mt-8 mb-4">
         <button
-          @click="page = Math.max(1, page - 1)"
+          @click="handlePageChange(Math.max(1, page - 1))"
           :disabled="page === 1"
-          class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors text-sm"
+          :class="[
+            'px-3 py-1 rounded transition-colors text-sm text-black border border-black',
+            page === 1
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-primary-600 hover:text-white hover:border-primary-600'
+          ]"
         >
-          上一页
+          <<
         </button>
         
         <div class="flex items-center gap-1">
@@ -52,12 +43,12 @@
             <span v-if="pageNum === '...'" class="px-2 text-gray-500">...</span>
             <button
               v-else
-              @click="page = pageNum"
+              @click="handlePageChange(pageNum)"
               :class="[
-                'px-3 py-1 rounded transition-colors text-sm',
+                'px-3 py-1 rounded transition-colors text-sm text-black',
                 page === pageNum
-                  ? 'bg-primary-600 text-white'
-                  : 'border border-gray-300 hover:bg-gray-100 text-gray-700'
+                  ? 'bg-primary-600 text-white border border-primary-600'
+                  : 'border border-black hover:bg-primary-600 hover:text-white hover:border-primary-600'
               ]"
             >
               {{ pageNum }}
@@ -66,11 +57,16 @@
         </div>
         
         <button
-          @click="page = Math.min(totalPages, page + 1)"
+          @click="handlePageChange(Math.min(totalPages, page + 1))"
           :disabled="page === totalPages"
-          class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors text-sm"
+          :class="[
+            'px-3 py-1 rounded transition-colors text-sm text-black border border-black',
+            page === totalPages
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-primary-600 hover:text-white hover:border-primary-600'
+          ]"
         >
-          下一页
+          >>
         </button>
       </div>
     </div>
@@ -92,15 +88,35 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { getPosts } from '../api'
+import { useRoute } from 'vue-router'
+import { getPosts, getAnnouncement } from '../api'
 import PostCard from '../components/PostCard.vue'
+
+const route = useRoute()
 
 const posts = ref([])
 const loading = ref(true)
-const page = ref(1)
+const page = ref(parseInt(route.query.page) || 1)
 const total = ref(0)
 const limit = 10
-const hoveringInfo = ref(false)
+const hoveringAnnouncement = ref(false)
+const announcement = ref(null)
+const announcementLoading = ref(true)
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const dateStr = date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+  const timeStr = date.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  return `${dateStr} ${timeStr}`
+}
 
 const totalPages = computed(() => Math.ceil(total.value / limit))
 
@@ -152,12 +168,42 @@ const loadPosts = async () => {
   }
 }
 
-watch(page, () => {
-  loadPosts()
+const handlePageChange = (newPage) => {
+  if (newPage >= 1 && newPage <= totalPages.value && newPage !== page.value) {
+    // 使用window.location.href进行重定向，带上page参数
+    const url = new URL(window.location.href)
+    url.searchParams.set('page', newPage)
+    window.location.href = url.toString()
+  }
+}
+
+// Watch for route query changes (e.g., on page refresh or browser back/forward)
+watch(() => route.query.page, (newPage) => {
+  const pageNum = parseInt(newPage) || 1
+  if (pageNum >= 1) {
+    page.value = pageNum
+    loadPosts()
+  }
 })
 
+const loadAnnouncement = async () => {
+  announcementLoading.value = true
+  try {
+    const res = await getAnnouncement()
+    announcement.value = res.data
+  } catch (err) {
+    console.error('Failed to load announcement:', err)
+  } finally {
+    announcementLoading.value = false
+  }
+}
+
 onMounted(() => {
+  // Initialize page from route.query.page and load posts
+  const queryPage = parseInt(route.query.page) || 1
+  page.value = queryPage
   loadPosts()
+  loadAnnouncement()
 })
 </script>
 

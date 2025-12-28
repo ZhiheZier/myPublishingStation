@@ -29,25 +29,33 @@
 - ✅ **多标签系统**（替代单一分类）
 - ✅ 全文搜索
 - ✅ **富文本编辑器**（支持格式化、颜色、图片插入）
-- ✅ 文章收藏
-- ✅ 评论系统（带分页）
+- ✅ 文章收藏和收藏夹页面
+- ✅ **评论系统**（支持多级回复、带分页）
+- ✅ **问答专区**（管理员可编辑的 Q&A 文章）
+- ✅ **留言板**（用户留言和回复功能）
+- ✅ **公告栏**（管理员可编辑的首页公告）
 - ✅ 响应式设计（移动端友好）
 - ✅ 现代化的 UI 设计（星空背景、透明效果）
 - ✅ **主题切换系统**（去特效版/全特效版）
-- ✅ **动态背景图片**（全特效版自动轮换背景）
+- ✅ **动态背景图片**（全特效版自动轮换，支持本地图片）
 - ✅ **小工具页面**（工具集合页面）
+- ✅ **图片查看器**（支持缩放、拖动、幻灯片、导航）
+- ✅ **返回顶部按钮**（滚动时自动显示）
 
 ### 用户系统
-- ✅ **用户注册/登录**
+- ✅ **用户注册/登录**（支持邮箱或用户名登录）
 - ✅ **JWT 认证**
 - ✅ **角色管理**（管理员/普通用户）
 - ✅ **个人信息修改**（昵称、头像、密码）
 - ✅ **忘记密码**（通过用户名和邮箱重置）
+- ✅ **收藏夹管理**（查看收藏的文章）
 
 ### 管理功能
-- ✅ **文章管理**（创建、编辑、删除）
+- ✅ **文章管理**（创建、编辑、删除、搜索、分页）
 - ✅ **用户管理**（查看、修改角色、删除）
-- ✅ 侧边栏（最新文章、最新留言、随机文章、分类标签）
+- ✅ **公告栏管理**（编辑首页公告）
+- ✅ **问答专区管理**（编辑 Q&A 文章）
+- ✅ 侧边栏（最新文章、最新留言/评论、随机文章、分类标签）
 
 ### 技术特性
 - ✅ RESTful API
@@ -72,7 +80,8 @@ blog/
 ├── server/                # 后端 Express 服务器
 │   ├── index.js          # 服务器主文件
 │   ├── init-db.js        # 数据库初始化脚本
-│   └── blog.db           # SQLite 数据库（运行后生成）
+│   ├── backgrounds/      # 背景图片目录（全特效版）
+│   └── publishStation.db # SQLite 数据库（运行后生成）
 ├── package.json          # 根 package.json
 └── README.md
 ```
@@ -108,10 +117,10 @@ npm run init-db
 **⚠️ 重要提示：** 如果之前有旧数据库，请先删除：
 ```bash
 # Windows PowerShell
-Remove-Item server\blog.db
+Remove-Item server\publishStation.db
 
 # Linux/Mac
-rm server/blog.db
+rm server/publishStation.db
 ```
 
 4. **启动开发服务器**
@@ -224,7 +233,7 @@ Body: { content }
 DELETE /api/comments/:id
 Headers: Authorization: Bearer <token>
 
-# 获取最新评论
+# 获取最新评论（包含所有文章评论和留言板消息）
 GET /api/comments/recent?limit=10
 ```
 
@@ -255,11 +264,59 @@ GET /api/admin/posts
 Headers: Authorization: Bearer <token>
 ```
 
+### 公告栏相关
+```bash
+# 获取公告
+GET /api/announcement
+
+# 更新公告（管理员）
+PUT /api/announcement
+Headers: Authorization: Bearer <token>
+Body: { content }
+```
+
+### 问答专区相关
+```bash
+# 获取问答文章
+GET /api/qa
+
+# 更新问答文章（管理员）
+PUT /api/qa
+Headers: Authorization: Bearer <token>
+Body: { title, content }
+```
+
+### 留言板相关
+```bash
+# 获取留言列表
+GET /api/guestbook?page=1&limit=10
+
+# 添加留言
+POST /api/guestbook
+Headers: Authorization: Bearer <token>
+Body: { content }
+
+# 删除留言（管理员或本人）
+DELETE /api/guestbook/:id
+Headers: Authorization: Bearer <token>
+```
+
+### 收藏相关
+```bash
+# 切换收藏状态
+POST /api/posts/:id/favorite
+Headers: Authorization: Bearer <token>
+
+# 获取用户收藏的文章列表
+GET /api/user/favorites?page=1&limit=10
+Headers: Authorization: Bearer <token>
+```
+
 ### 背景图片相关
 ```bash
-# 获取背景图片（横屏图片，过滤404）
+# 获取背景图片列表（本地图片）
 GET /api/background-images
-Returns: { images: [{ url, width, height }] }
+Returns: { images: [url1, url2, ...] }
 ```
 
 ## 数据库结构
@@ -316,7 +373,32 @@ Returns: { images: [{ url, width, height }] }
 | post_id | INTEGER | 文章 ID |
 | user_id | INTEGER | 用户 ID |
 | content | TEXT | 评论内容 |
+| parent_id | INTEGER | 父评论 ID（回复时使用，NULL 为根评论） |
 | created_at | DATETIME | 评论时间 |
+
+### announcement 表
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER | 主键，自增 |
+| content | TEXT | 公告内容（HTML格式） |
+| updated_at | DATETIME | 更新时间 |
+
+### qa 表
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER | 主键，自增 |
+| title | TEXT | Q&A 标题 |
+| content | TEXT | Q&A 内容（HTML格式） |
+| updated_at | DATETIME | 更新时间 |
+
+### guestbook 表
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER | 主键，自增 |
+| user_id | INTEGER | 用户 ID |
+| content | TEXT | 留言内容 |
+| parent_id | INTEGER | 父留言 ID（回复时使用，NULL 为根留言） |
+| created_at | DATETIME | 留言时间 |
 
 ## 开发说明
 
@@ -352,7 +434,7 @@ curl -X POST http://localhost:3001/api/posts \
 
 3. **直接操作数据库**
 ```bash
-sqlite3 server/blog.db
+sqlite3 server/publishStation.db
 ```
 
 ### 自定义样式
@@ -369,26 +451,37 @@ npm run build
 
 ## 特性展示
 
-- 🎨 **现代化设计** - 星空背景、透明效果、流畅动画
+- 🎨 **现代化设计** - 星空背景、透明效果、流畅动画、自定义滚动条
 - 📱 **响应式** - 完美适配桌面和移动设备
 - 🔍 **搜索功能** - 支持标题和内容搜索
 - 🏷️ **多标签系统** - 灵活的标签管理和筛选
-- ✏️ **富文本编辑器** - 支持格式化、颜色、图片
-- 👤 **用户系统** - 完整的认证和授权
-- 💬 **评论互动** - 用户可以评论和收藏文章
+- ✏️ **富文本编辑器** - 支持格式化、颜色、图片、标题样式
+- 👤 **用户系统** - 完整的认证和授权（支持邮箱或用户名登录）
+- 💬 **评论互动** - 多级评论回复、留言板、问答专区
+- 📸 **图片功能** - 图片查看器（缩放、拖动、幻灯片）、文章图片悬浮放大
+- 🎯 **收藏系统** - 文章收藏、收藏夹页面
 - 👑 **角色管理** - 管理员和普通用户权限分离
+- 📢 **公告系统** - 管理员可编辑首页公告
 - ⚡ **性能优化** - 使用 Vite 快速构建
 - 🗄️ **轻量数据库** - SQLite 无需额外配置
-- 🔒 **安全保障** - JWT 认证、密码加密
+- 🔒 **安全保障** - JWT 认证、密码加密、级联删除
+- 🔝 **用户体验** - 返回顶部按钮、自动滚动、页面刷新机制
 
 ## 注意事项
 
 1. **第一个注册的用户会自动成为管理员**
-2. **JWT Token 有效期为 7 天**
-3. **密码使用 bcrypt 加密存储**
-4. **管理员不能删除自己**
-5. **所有需要权限的操作都需要在请求头中携带 Token**
-6. **数据库结构有重大更新，旧数据库需要删除后重新初始化**
+2. **默认管理员账号**（初始化数据库时创建）：
+   - 用户名：`admin`
+   - 邮箱：`admin@admin`
+   - 密码：`123456`
+3. **JWT Token 有效期为 7 天**
+4. **密码使用 bcrypt 加密存储**
+5. **管理员不能删除自己**
+6. **所有需要权限的操作都需要在请求头中携带 Token**
+7. **数据库文件为 `publishStation.db`**（位于 `server/` 目录）
+8. **背景图片**：全特效版的背景图片位于 `server/backgrounds/` 目录，支持本地图片
+9. **评论和留言支持多级回复**，删除根评论/留言会自动级联删除所有回复
+10. **初始化数据库**：运行 `npm run init-db` 会创建示例数据（11篇文章、管理员和普通用户、问答内容、留言板消息、评论和回复）
 
 ## 许可证
 

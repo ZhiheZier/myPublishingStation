@@ -16,7 +16,7 @@
             type="text"
             v-model="searchQuery"
             placeholder="搜索"
-            class="flex-1 px-2 py-1.5 border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            class="flex-1 px-2 py-1.5 border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm text-gray-900 bg-white"
           />
           <button
             type="submit"
@@ -40,15 +40,70 @@
       </form>
     </div>
 
-    <!-- Pomodoro Status or User Widget -->
-    <div ref="loginWidget" class="widget-initial-flip">
-      <PomodoroStatus v-if="!authStore.user" />
-    </div>
+    <!-- Login/User Widget -->
     <div 
-      v-if="authStore.user"
-      ref="userWidget"
+      v-if="isAuthInitialized && !authUser"
+      ref="loginWidget"
       class="widget-initial-flip"
     >
+      <LoginForm />
+    </div>
+    <div 
+      v-if="isAuthInitialized && authUser"
+      ref="userWidget"
+      class="widget-initial-flip bg-white/30 rounded shadow-lg p-4 pb-0 hover:bg-white/50 transition-all duration-300 overflow-hidden sidebar-widget" 
+      style="max-width: 100%;"
+    >
+      <p class="text-sm font-semibold text-white rounded-t px-3 py-1.5 mb-0 -mx-4 -mt-4 flex items-center gap-2" style="background-color: rgba(0, 0, 0, 0.6);">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+        欢迎!
+      </p>
+      <div class="flex items-center justify-center px-0 py-5 gap-4">
+        <div class="flex items-center gap-4">
+          <router-link
+            :to="authUser.role === 'admin' ? '/admin' : '/profile'"
+            class="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 transition-transform duration-500 hover:rotate-360 bg-gray-300"
+          >
+            <img
+              v-if="authUser.avatar"
+              :src="authUser.avatar"
+              alt="Avatar"
+              class="w-full h-full object-cover"
+            />
+            <svg
+              v-else
+              class="w-7 h-7 text-gray-500"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </router-link>
+          <router-link
+            :to="authUser.role === 'admin' ? '/admin' : '/profile'"
+            class="text-gray-900 font-medium text-base transition-colors duration-200 hover:text-red-500"
+          >
+            {{ authUser.username }}
+          </router-link>
+        </div>
+        <button
+          @click="authStore.logout()"
+          class="px-4 py-2 text-white rounded text-sm hover:bg-red-500 transition-colors"
+          style="background-color: rgba(0, 0, 0, 0.6);"
+        >
+          退出登录
+        </button>
+      </div>
+    </div>
+
+    <!-- Pomodoro Status Widget -->
+    <div ref="pomodoroWidget" class="widget-initial">
       <PomodoroStatus />
     </div>
 
@@ -68,6 +123,7 @@
         <li v-for="post in recentPosts" :key="post.id">
           <router-link
             :to="{ name: 'PostDetail', params: { id: post.id } }"
+            @click="scrollToTop"
             class="block px-4 py-2 hover:bg-white/60 hover:shadow-md transition-all duration-200 group"
           >
             <h4 class="text-sm font-medium text-gray-900 group-hover:text-red-500 transition-colors duration-200 truncate">
@@ -91,9 +147,9 @@
         最新留言
       </h3>
       <ul class="space-y-0 -mx-4" style="position: relative; z-index: 200; overflow: visible;">
-        <li v-for="comment in recentComments" :key="comment.id" class="relative" style="position: relative; z-index: 300; overflow: visible;">
+        <li v-for="comment in recentComments" :key="`${comment.type}-${comment.id}`" class="relative" style="position: relative; z-index: 300; overflow: visible;">
           <router-link
-            :to="`/post/${comment.post_id}#comments`"
+            :to="comment.type === 'guestbook' ? '/guestbook' : `/post/${comment.post_id}#comments`"
             class="block px-4 py-2 hover:bg-white/60 transition-all duration-200 group"
           >
             <div class="flex items-center gap-2 relative">
@@ -149,6 +205,7 @@
         <li v-for="post in randomPosts" :key="post.id">
           <router-link
             :to="{ name: 'PostDetail', params: { id: post.id } }"
+            @click="scrollToTop"
             class="block px-4 py-3 hover:bg-white/60 hover:shadow-md transition-all duration-200 group"
           >
             <h4 class="text-sm font-medium text-gray-900 group-hover:text-red-500 line-clamp-2 transition-colors duration-200 truncate">
@@ -172,30 +229,34 @@
         分类标签
       </h3>
       <div class="flex flex-wrap gap-2">
-        <router-link
+        <a
           v-for="tag in tags"
           :key="tag.name"
-          :to="`/category/${encodeURIComponent(tag.name)}`"
+          :href="`/category/${encodeURIComponent(tag.name)}`"
           class="px-3 py-1 bg-gray-100/60 text-gray-700 rounded-md hover:bg-primary-100/80 hover:text-primary-700 transition-colors text-sm"
         >
           {{ tag.name }} ({{ tag.count }})
-        </router-link>
+        </a>
       </div>
     </div>
   </aside>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { getTags, getPosts, getRecentComments, getRandomPosts } from '../api'
 import { useAuthStore } from '../stores/auth'
+import LoginForm from './LoginForm.vue'
 import PomodoroStatus from './PomodoroStatus.vue'
 import { useScrollAnimation } from '../composables/useScrollAnimation'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { user: authUser, loading: authLoading } = storeToRefs(authStore)
 const searchQuery = ref('')
+const isAuthInitialized = ref(false)
 const tags = ref([])
 const recentPosts = ref([])
 const recentComments = ref([])
@@ -204,6 +265,7 @@ const isContentLoaded = ref(false)
 const searchWidget = ref(null)
 const loginWidget = ref(null)
 const userWidget = ref(null)
+const pomodoroWidget = ref(null)
 const categoriesWidget = ref(null)
 const recentPostsWidget = ref(null)
 const recentCommentsWidget = ref(null)
@@ -256,12 +318,24 @@ const { registerElement: registerWidget, checkAllInitialState } = useScrollAnima
 })
 
 onMounted(async () => {
+  // Ensure authStore is initialized (always call init to check token)
+  if (authStore.loading) {
+    await authStore.init()
+  } else {
+    // If not loading, check if we need to init anyway (e.g., new tab opened)
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+    if (token && !authStore.user) {
+      await authStore.init()
+    }
+  }
+  isAuthInitialized.value = true
+  
   // Load all content first
   const promises = [
     getTags().then(res => tags.value = res.data).catch(err => console.error('Failed to load tags:', err)),
     getPosts({ page: 1, limit: 3 }).then(res => recentPosts.value = res.data.posts).catch(err => console.error('Failed to load recent posts:', err)),
     getRecentComments(10).then(res => recentComments.value = res.data).catch(err => console.error('Failed to load recent comments:', err)),
-    getRandomPosts(5).then(res => {
+    getRandomPosts(8).then(res => {
       randomPosts.value = Array.isArray(res.data) ? res.data : [];
     }).catch(err => {
       console.error('Failed to load random posts:', err);
@@ -282,6 +356,7 @@ onMounted(async () => {
     { ref: searchWidget, isFlip: false },
     { ref: loginWidget, isFlip: true },
     { ref: userWidget, isFlip: true },
+    { ref: pomodoroWidget, isFlip: false },
     { ref: categoriesWidget, isFlip: false },
     { ref: recentPostsWidget, isFlip: false },
     { ref: recentCommentsWidget, isFlip: false },
@@ -319,8 +394,12 @@ onMounted(async () => {
 
 const handleSearch = () => {
   if (searchQuery.value.trim()) {
-    router.push(`/search?q=${encodeURIComponent(searchQuery.value.trim())}`)
+    window.location.href = `/search?q=${encodeURIComponent(searchQuery.value.trim())}`
   }
+}
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const formatDate = (dateString) => {

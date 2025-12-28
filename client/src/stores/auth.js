@@ -7,6 +7,12 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(true)
 
   const init = async () => {
+    // Prevent multiple simultaneous initializations
+    if (!loading.value && user.value) {
+      return
+    }
+    
+    loading.value = true
     const token = localStorage.getItem('token') || sessionStorage.getItem('token')
     
     if (token) {
@@ -17,7 +23,10 @@ export const useAuthStore = defineStore('auth', () => {
         // Token is invalid, clear it
         localStorage.removeItem('token')
         sessionStorage.removeItem('token')
+        user.value = null
       }
+    } else {
+      user.value = null
     }
     loading.value = false
   }

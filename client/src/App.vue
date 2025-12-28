@@ -5,13 +5,16 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onBeforeMount } from 'vue'
 import Layout from './components/Layout.vue'
 import { useAuthStore } from './stores/auth'
 
 const authStore = useAuthStore()
 
-onMounted(() => {
-  authStore.init()
+// Initialize auth store before component mounts to ensure user state is available
+onBeforeMount(async () => {
+  if (authStore.loading) {
+    await authStore.init()
+  }
 })
 </script>

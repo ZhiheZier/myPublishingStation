@@ -1,19 +1,19 @@
 <template>
   <div>
-    <!-- Search Header -->
-    <div class="bg-white/30 backdrop-blur-sm rounded-lg shadow-sm p-6 mb-6" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);">
-      <h1 class="text-2xl font-bold text-gray-900 mb-2">
-        搜索结果
+    <!-- Page Header -->
+    <div class="bg-white/30 rounded mb-6 p-6 transition-all duration-300" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);">
+      <h1 class="text-3xl font-bold text-center mb-2">
+        <span class="inline-block px-4 py-2 rounded text-white" style="background-color: rgba(79, 195, 247, 0.6);">
+          我的收藏
+        </span>
       </h1>
-      <p class="text-gray-500 text-sm">
-        关键词: <span class="font-semibold text-gray-900">"{{ query }}"</span> - 找到 {{ total }} 篇文章
-      </p>
+      <p class="text-center text-gray-600 mt-2">共 {{ total }} 篇收藏文章</p>
     </div>
 
     <!-- Posts List -->
     <div v-if="posts.length > 0">
-      <div class="space-y-0">
-        <PostCard v-for="post in posts" :key="post.id" :post="post" />
+      <div class="space-y-6">
+        <PostCard v-for="(post, index) in posts" :key="post.id" :post="post" :index="index" />
       </div>
 
       <!-- Pagination -->
@@ -64,47 +64,25 @@
       </div>
     </div>
 
-    <!-- No Query -->
-    <div v-else-if="!query" class="text-center py-12 bg-white/30 backdrop-blur-sm rounded-lg" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);">
-      <p class="text-gray-500 text-lg mb-4">请输入搜索关键词</p>
-      <router-link
-        to="/"
-        class="text-primary-600 hover:text-primary-700 inline-block"
-      >
-        返回首页
-      </router-link>
-    </div>
-
     <!-- Loading State -->
     <div v-else-if="loading" class="flex justify-center items-center min-h-[400px]">
       <div class="text-center">
         <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        <p class="mt-4 text-gray-600">搜索中...</p>
+        <p class="mt-4 text-gray-600">加载中...</p>
       </div>
     </div>
 
     <!-- Empty State -->
-    <div v-else class="text-center py-12 bg-white/30 backdrop-blur-sm rounded-lg" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);">
-      <svg
-        class="mx-auto h-12 w-12 text-gray-400 mb-4"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        />
+    <div v-else class="text-center py-12 bg-white/60 backdrop-blur-sm rounded-lg hover:bg-white/80 transition-colors">
+      <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
       </svg>
-      <p class="text-gray-500 text-lg mb-2">未找到相关文章</p>
-      <p class="text-gray-400 text-sm mb-4">请尝试使用其他关键词搜索</p>
-      <router-link
-        to="/"
-        class="text-primary-600 hover:text-primary-700 inline-block"
+      <p class="text-gray-500 text-lg">还没有收藏任何文章</p>
+      <router-link 
+        to="/" 
+        class="inline-block mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
       >
-        返回首页
+        去首页看看
       </router-link>
     </div>
   </div>
@@ -112,17 +90,18 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { getPosts } from '../api'
+import { useRoute, useRouter } from 'vue-router'
+import { getUserFavorites } from '../api'
 import PostCard from '../components/PostCard.vue'
 
 const route = useRoute()
-const query = computed(() => route.query.q || '')
+const router = useRouter()
+
 const posts = ref([])
 const loading = ref(true)
-const page = ref(1)
+const page = ref(parseInt(route.query.page) || 1)
 const total = ref(0)
-const limit = 9
+const limit = 10
 
 const totalPages = computed(() => Math.ceil(total.value / limit))
 
@@ -161,29 +140,48 @@ const visiblePages = computed(() => {
   return pages
 })
 
-const loadPosts = async () => {
-  if (!query.value) {
-    loading.value = false
-    return
-  }
-
+const loadFavorites = async () => {
   loading.value = true
   try {
-    const res = await getPosts({ search: query.value, page: page.value, limit })
+    const res = await getUserFavorites({ page: page.value, limit })
     posts.value = res.data.posts
     total.value = res.data.total
   } catch (err) {
-    console.error('Failed to load posts:', err)
+    console.error('Failed to load favorites:', err)
+    if (err.response?.status === 401) {
+      // User not authenticated, redirect to login
+      window.location.href = '/login'
+    }
   } finally {
     loading.value = false
   }
 }
 
-watch([query, page], () => {
-  loadPosts()
+watch(page, (newPage) => {
+  // Update URL query parameter when page changes
+  router.replace({ query: { ...route.query, page: newPage } })
+  loadFavorites()
 })
 
-onMounted(() => {
-  loadPosts()
+// Watch for route query changes (e.g., on page refresh or browser back/forward)
+watch(() => route.query.page, (newPage) => {
+  const pageNum = parseInt(newPage) || 1
+  if (pageNum !== page.value && pageNum >= 1) {
+    page.value = pageNum
+  }
+})
+
+onMounted(async () => {
+  // Initialize page from URL query parameter
+  const queryPage = parseInt(route.query.page)
+  if (queryPage && queryPage >= 1 && queryPage !== page.value) {
+    page.value = queryPage
+  } else {
+    await loadFavorites()
+  }
 })
 </script>
+
+<style scoped>
+/* 可以添加一些自定义样式 */
+</style>

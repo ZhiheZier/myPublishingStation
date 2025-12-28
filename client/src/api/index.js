@@ -69,13 +69,17 @@ export const toggleFavorite = (postId) => {
   return api.post(`/posts/${postId}/favorite`);
 };
 
+export const getUserFavorites = (params = {}) => {
+  return api.get('/user/favorites', { params });
+};
+
 // Comments API
 export const getComments = (postId, params = {}) => {
   return api.get(`/posts/${postId}/comments`, { params });
 };
 
-export const addComment = (postId, content) => {
-  return api.post(`/posts/${postId}/comments`, { content });
+export const addComment = (postId, content, parentId = null) => {
+  return api.post(`/posts/${postId}/comments`, { content, parent_id: parentId });
 };
 
 export const deleteComment = (commentId) => {
@@ -120,6 +124,37 @@ export const getTags = () => {
 // Background Images API
 export const getBackgroundImages = () => {
   return api.get('/background-images');
+};
+
+// Announcement API
+export const getAnnouncement = () => {
+  return api.get('/announcement');
+};
+
+export const updateAnnouncement = (content) => {
+  return api.put('/announcement', { content });
+};
+
+// Q&A API
+export const getQa = () => {
+  return api.get('/qa');
+};
+
+export const updateQa = (title, content) => {
+  return api.put('/qa', { title, content });
+};
+
+// Guestbook API
+export const getGuestbook = (params = {}) => {
+  return api.get('/guestbook', { params });
+};
+
+export const addGuestbookMessage = (content) => {
+  return api.post('/guestbook', { content });
+};
+
+export const deleteGuestbookMessage = (id) => {
+  return api.delete(`/guestbook/${id}`);
 };
 
 export default api;

@@ -22,14 +22,20 @@ const uploadsDir = join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 app.use('/uploads', express.static(uploadsDir));
 
+// Background images directory
+const backgroundsDir = join(__dirname, 'backgrounds');
+if (!fs.existsSync(backgroundsDir)) fs.mkdirSync(backgroundsDir);
+app.use('/backgrounds', express.static(backgroundsDir));
+
 // Database setup
-const dbPath = join(__dirname, 'blog.db');
+// Note: Table creation is handled by init-db.js
+// Only create art-related tables here that are not in init-db.js
+const dbPath = join(__dirname, 'publishStation.db');
 const db = new sqlite3.Database(dbPath);
 db.serialize(() => {
   db.run('CREATE TABLE IF NOT EXISTS art_albums (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, title TEXT, description TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
   db.run('CREATE TABLE IF NOT EXISTS artworks (id INTEGER PRIMARY KEY AUTOINCREMENT, album_id INTEGER, title TEXT, image_url TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
   db.run('CREATE TABLE IF NOT EXISTS artwork_tags (artwork_id INTEGER, tag_id INTEGER)');
-  db.run('CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)');
   db.run('CREATE TABLE IF NOT EXISTS album_tags (album_id INTEGER, tag_id INTEGER)');
   db.run('CREATE TABLE IF NOT EXISTS artwork_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, artwork_id INTEGER, user_id INTEGER, content TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
   db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_album_user_title ON art_albums(user_id, title)');
@@ -105,6 +111,7 @@ app.get('/api/posts', async (req, res) => {
       COALESCE((SELECT COUNT(*) FROM favorites WHERE post_id = p.id), 0) as favorites_count,
       COALESCE((SELECT COUNT(*) FROM comments WHERE post_id = p.id), 0) as comments_count 
       FROM posts p`;
+      // Note: comments_count includes all comments (top-level and replies)
     let countQuery = 'SELECT COUNT(DISTINCT p.id) as total FROM posts p';
     const params = [];
     const countParams = [];
@@ -306,26 +313,51 @@ app.get('/api/categories', (req, res) => {
   );
 });
 
-// Get recent comments (for sidebar)
+// Get recent comments (for sidebar) - includes all comments from posts and guestbook messages
 app.get('/api/comments/recent', (req, res) => {
   const { limit = 10 } = req.query;
   
-  db.all(
-    `SELECT c.*, u.username, u.avatar, p.title as post_title, p.id as post_id
+  // Get all comments from posts (not just Q&A)
+  const commentsQuery = `
+    SELECT c.*, u.username, u.avatar, p.title as post_title, p.id as post_id, 'comment' as type
      FROM comments c 
      JOIN users u ON c.user_id = u.id 
      JOIN posts p ON c.post_id = p.id
      ORDER BY c.created_at DESC
-     LIMIT ?`,
-    [parseInt(limit)],
-    (err, rows) => {
+     LIMIT ?
+  `;
+  
+  // Get guestbook messages
+  const guestbookQuery = `
+    SELECT g.id, g.content, g.created_at, g.user_id, u.username, u.avatar, 
+           '留言板' as post_title, NULL as post_id, 'guestbook' as type
+     FROM guestbook g
+     JOIN users u ON g.user_id = u.id
+     ORDER BY g.created_at DESC
+     LIMIT ?
+  `;
+  
+  // Execute both queries and combine results
+  db.all(commentsQuery, [parseInt(limit)], (err, commentRows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    db.all(guestbookQuery, [parseInt(limit)], (err, guestbookRows) => {
       if (err) {
         res.status(500).json({ error: err.message });
         return;
       }
-      res.json(rows);
-    }
-  );
+      
+      // Combine and sort by created_at
+      const combined = [...(commentRows || []), ...(guestbookRows || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, parseInt(limit));
+      
+      res.json(combined);
+    });
+  });
 });
 
 // Create post (admin only)
@@ -550,24 +582,25 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login
+// Login (supports email or username)
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    res.status(400).json({ error: 'Email and password are required' });
+    res.status(400).json({ error: 'Email/username and password are required' });
     return;
   }
 
   try {
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
+    // Try to find user by email or username
+    db.get('SELECT * FROM users WHERE email = ? OR username = ?', [email, email], async (err, user) => {
       if (err) {
         res.status(500).json({ error: err.message });
         return;
       }
 
       if (!user) {
-        res.status(401).json({ error: 'Invalid email or password' });
+        res.status(401).json({ error: 'Invalid email/username or password' });
         return;
       }
 
@@ -575,7 +608,7 @@ app.post('/api/auth/login', async (req, res) => {
       const isValidPassword = await bcrypt.compare(password, user.password);
 
       if (!isValidPassword) {
-        res.status(401).json({ error: 'Invalid email or password' });
+        res.status(401).json({ error: 'Invalid email/username or password' });
         return;
       }
 
@@ -625,6 +658,51 @@ app.get('/api/auth/me', (req, res) => {
 
 // Favorites Routes
 
+// Get user's favorite posts
+app.get('/api/user/favorites', verifyToken, async (req, res) => {
+  const userId = req.user.id;
+  const { page = 1, limit = 10 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+
+  try {
+    // Get favorite posts with favorites count and comments count
+    const query = `SELECT p.*, 
+      COALESCE((SELECT COUNT(*) FROM favorites WHERE post_id = p.id), 0) as favorites_count,
+      COALESCE((SELECT COUNT(*) FROM comments WHERE post_id = p.id), 0) as comments_count 
+      FROM posts p
+      INNER JOIN favorites f ON p.id = f.post_id
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC
+      LIMIT ? OFFSET ?`;
+
+    db.all(query, [userId, parseInt(limit), offset], async (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      // Add tags to posts
+      const postsWithTags = await addTagsToPosts(rows);
+
+      // Get total count
+      db.get('SELECT COUNT(*) as total FROM favorites WHERE user_id = ?', [userId], (err, countRow) => {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        res.json({
+          posts: postsWithTags,
+          total: countRow.total,
+          page: parseInt(page),
+          limit: parseInt(limit)
+        });
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Toggle favorite (add/remove)
 app.post('/api/posts/:id/favorite', verifyToken, (req, res) => {
   const { id } = req.params;
@@ -665,48 +743,89 @@ app.post('/api/posts/:id/favorite', verifyToken, (req, res) => {
 
 // Comments Routes
 
-// Get comments for a post
+// Get comments for a post (with nested replies)
 app.get('/api/posts/:id/comments', (req, res) => {
   const { id } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
 
-  // Get total count
-  db.get('SELECT COUNT(*) as total FROM comments WHERE post_id = ?', [id], (err, countRow) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-
-    // Get paginated comments
-    db.all(
-      `SELECT c.*, u.username 
-       FROM comments c 
-       JOIN users u ON c.user_id = u.id 
-       WHERE c.post_id = ? 
-       ORDER BY c.created_at ASC
-       LIMIT ? OFFSET ?`,
-      [id, parseInt(limit), offset],
-      (err, rows) => {
-        if (err) {
-          res.status(500).json({ error: err.message });
-          return;
-        }
-        res.json({
-          comments: rows,
-          total: countRow.total,
-          page: parseInt(page),
-          limit: parseInt(limit)
-        });
+  // Get all comments for the post (including replies)
+  db.all(
+    `SELECT c.*, u.username,
+       (SELECT username FROM users WHERE id = (SELECT user_id FROM comments WHERE id = c.parent_id)) as reply_to_username
+     FROM comments c 
+     JOIN users u ON c.user_id = u.id 
+     WHERE c.post_id = ? 
+     ORDER BY 
+       COALESCE(c.parent_id, c.id) ASC,
+       c.created_at ASC`,
+    [id],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
       }
-    );
-  });
+      
+      // Build nested structure
+      const commentsMap = new Map();
+      const topLevelComments = [];
+      
+      // First pass: create map of all comments
+      rows.forEach(comment => {
+        commentsMap.set(comment.id, { ...comment, replies: [] });
+      });
+      
+      // Second pass: build nested structure
+      // We need to handle nested replies correctly
+      // A reply can be to a top-level comment or to another reply
+      rows.forEach(comment => {
+        const commentObj = commentsMap.get(comment.id);
+        if (comment.parent_id) {
+          // This is a reply - find the parent (could be top-level or another reply)
+          const parent = commentsMap.get(comment.parent_id);
+          if (parent) {
+            // Add to parent's replies array
+            if (!parent.replies) {
+              parent.replies = [];
+            }
+            parent.replies.push(commentObj);
+          } else {
+            // Parent not found in map (shouldn't happen), treat as top-level
+            topLevelComments.push(commentObj);
+          }
+        } else {
+          // This is a top-level comment
+          topLevelComments.push(commentObj);
+        }
+      });
+      
+      // Recursively sort replies by created_at
+      const sortReplies = (comment) => {
+        if (comment.replies && comment.replies.length > 0) {
+          comment.replies.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          // Recursively sort nested replies
+          comment.replies.forEach(reply => sortReplies(reply));
+        }
+      };
+      
+      topLevelComments.forEach(comment => {
+        sortReplies(comment);
+      });
+      
+      // Get total count (all comments including replies)
+      const totalCount = rows.length; // Count all comments including replies
+      res.json({
+        comments: topLevelComments,
+        total: totalCount, // Return total count of all comments (including replies)
+        page: 1,
+        limit: totalCount
+      });
+    }
+  );
 });
 
-// Add comment
+// Add comment (supports replies with parent_id)
 app.post('/api/posts/:id/comments', verifyToken, (req, res) => {
   const { id } = req.params;
-  const { content } = req.body;
+  const { content, parent_id } = req.body;
   const userId = req.user.id;
 
   if (!content || !content.trim()) {
@@ -714,32 +833,76 @@ app.post('/api/posts/:id/comments', verifyToken, (req, res) => {
     return;
   }
 
-  db.run(
-    'INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)',
-    [id, userId, content.trim()],
-    function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
+  // If parent_id is provided, verify it exists and belongs to the same post
+  if (parent_id) {
+    db.get('SELECT post_id FROM comments WHERE id = ?', [parent_id], (err, parent) => {
+      if (err || !parent) {
+        res.status(400).json({ error: 'Invalid parent comment' });
         return;
       }
-
-      // Get the created comment with user info
-      db.get(
-        `SELECT c.*, u.username 
-         FROM comments c 
-         JOIN users u ON c.user_id = u.id 
-         WHERE c.id = ?`,
-        [this.lastID],
-        (err, comment) => {
+      if (parent.post_id !== parseInt(id)) {
+        res.status(400).json({ error: 'Parent comment must belong to the same post' });
+        return;
+      }
+      
+      // Insert reply
+      db.run(
+        'INSERT INTO comments (post_id, user_id, content, parent_id) VALUES (?, ?, ?, ?)',
+        [id, userId, content.trim(), parent_id],
+        function(err) {
           if (err) {
             res.status(500).json({ error: err.message });
             return;
           }
-          res.json(comment);
+
+          // Get the created comment with user info
+          db.get(
+            `SELECT c.*, u.username,
+              (SELECT username FROM users WHERE id = (SELECT user_id FROM comments WHERE id = c.parent_id)) as reply_to_username
+             FROM comments c 
+             JOIN users u ON c.user_id = u.id 
+             WHERE c.id = ?`,
+            [this.lastID],
+            (err, comment) => {
+              if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+              }
+              res.json(comment);
+            }
+          );
         }
       );
-    }
-  );
+    });
+  } else {
+    // Insert top-level comment
+    db.run(
+      'INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)',
+      [id, userId, content.trim()],
+      function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+
+        // Get the created comment with user info
+        db.get(
+          `SELECT c.*, u.username 
+           FROM comments c 
+           JOIN users u ON c.user_id = u.id 
+           WHERE c.id = ?`,
+          [this.lastID],
+          (err, comment) => {
+            if (err) {
+              res.status(500).json({ error: err.message });
+              return;
+            }
+            res.json(comment);
+          }
+        );
+      }
+    );
+  }
 });
 
 // Delete comment (user can delete their own, admin can delete any)
@@ -771,12 +934,50 @@ app.delete('/api/comments/:id', verifyToken, (req, res) => {
         return;
       }
 
-      db.run('DELETE FROM comments WHERE id = ?', [id], function(err) {
+      // Recursively delete all replies first, then delete the comment itself
+      const deleteCommentAndReplies = (commentId, callback) => {
+        // First, find all direct replies
+        db.all('SELECT id FROM comments WHERE parent_id = ?', [commentId], (err, replies) => {
+          if (err) {
+            if (callback) callback(err);
+            return;
+          }
+          
+          // Recursively delete all replies
+          if (replies && replies.length > 0) {
+            let completed = 0;
+            const total = replies.length;
+            
+            replies.forEach(reply => {
+              deleteCommentAndReplies(reply.id, (err) => {
+                if (err) {
+                  if (callback) callback(err);
+                  return;
+                }
+                completed++;
+                if (completed === total) {
+                  // All replies deleted, now delete the parent comment
+                  db.run('DELETE FROM comments WHERE id = ?', [commentId], function(err) {
+                    if (callback) callback(err);
+                  });
+                }
+              });
+            });
+          } else {
+            // No replies, just delete the comment
+            db.run('DELETE FROM comments WHERE id = ?', [commentId], function(err) {
+              if (callback) callback(err);
+            });
+          }
+        });
+      };
+      
+      deleteCommentAndReplies(id, (err) => {
         if (err) {
           res.status(500).json({ error: err.message });
           return;
         }
-        res.json({ message: 'Comment deleted successfully' });
+        res.json({ message: 'Comment and all replies deleted successfully' });
       });
     });
   });
@@ -1012,93 +1213,227 @@ app.delete('/api/admin/users/:id', verifyToken, requireAdmin, (req, res) => {
   });
 });
 
-// Get background images from lolicon API (filtered for landscape images)
-app.get('/api/background-images', async (req, res) => {
+// Get background images from local directory
+app.get('/api/background-images', (req, res) => {
   try {
-    const response = await fetch('https://api.lolicon.app/setu/v2?num=20&size=regular&r18=0&excludeAI=true');
-    const data = await response.json();
+    const files = fs.readdirSync(backgroundsDir);
     
-    if (!data.data || !Array.isArray(data.data)) {
-      return res.status(500).json({ error: 'Invalid API response' });
+    // Filter for image files only
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+    const imageFiles = files
+      .filter(file => {
+        const ext = file.toLowerCase().substring(file.lastIndexOf('.'));
+        return imageExtensions.includes(ext);
+      })
+      .map(file => ({
+        url: `/backgrounds/${file}`
+      }));
+    
+    console.log(`Found ${imageFiles.length} background images in local directory`);
+    
+    res.json({ images: imageFiles });
+  } catch (error) {
+    console.error('Failed to read background images:', error);
+    res.status(500).json({ error: 'Failed to read background images' });
+  }
+});
+
+// Announcement Routes
+// Get announcement
+app.get('/api/announcement', (req, res) => {
+  db.get('SELECT * FROM announcement ORDER BY id DESC LIMIT 1', [], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(row || { id: null, content: '', updated_at: null });
+  });
+});
+
+// Update announcement (admin only)
+app.put('/api/announcement', verifyToken, requireAdmin, (req, res) => {
+  const { content } = req.body;
+  
+  if (content === undefined || content === null) {
+    res.status(400).json({ error: 'Content is required' });
+    return;
+  }
+  
+  // Check if announcement exists
+  db.get('SELECT id FROM announcement ORDER BY id DESC LIMIT 1', [], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
     }
     
-    // Filter for landscape images (width > height)
-    const landscapeImages = data.data
-      .filter(item => item.width > item.height)
-      .map(item => ({
-        url: item.urls?.regular || item.urls?.original || '',
-        width: item.width,
-        height: item.height
-      }))
-      .filter(item => item.url); // Remove empty URLs
-    
-    // Check which images are accessible (not 404)
-    const accessibleImages = [];
-    const checkPromises = landscapeImages.map(async (item) => {
-      try {
-        // 使用GET请求检查，添加浏览器请求头来避免被服务器拒绝
-        const response = await fetch(item.url, { 
-          method: 'GET',
-          headers: { 
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.pixiv.net/',
-            'Range': 'bytes=0-511' // 只请求前512字节
-          }
-        });
-        
-        // 如果返回404，直接排除
-        if (response.status === 404) {
-          console.log(`Image 404: ${item.url}`);
-          return null;
+    if (row) {
+      // Update existing announcement
+      db.run('UPDATE announcement SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [content, row.id], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
         }
-        
-        // 检查Content-Type，如果是HTML，说明返回的是错误页面，应该排除
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('text/html')) {
-          console.log(`Image returns HTML (likely 404 page): ${item.url}`);
-          return null;
+        res.json({ id: row.id, content, message: 'Announcement updated' });
+      });
+    } else {
+      // Insert new announcement
+      db.run('INSERT INTO announcement (content) VALUES (?)', [content], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
         }
-        
-        // 检查响应体的开头，如果是HTML标签（如<!DOCTYPE或<html），说明是错误页面
-        if (response.status === 200 || response.status === 206) {
-          const buffer = await response.arrayBuffer();
-          const text = new TextDecoder('utf-8', { fatal: false }).decode(buffer.slice(0, 100));
-          const trimmedText = text.trim().toLowerCase();
-          
-          if (trimmedText.startsWith('<!doctype') || 
-              trimmedText.startsWith('<html') || 
-              trimmedText.startsWith('<h1')) {
-            console.log(`Image returns HTML content (likely 404 page): ${item.url}`);
-            return null;
-          }
-          
-          // 检查Content-Type应该是图片类型，或者如果没有Content-Type但内容不是HTML，也允许
-          if (contentType.startsWith('image/') || (!contentType && !trimmedText.startsWith('<'))) {
-            return item;
-          }
-        }
-        
-        console.log(`Image not accessible (status ${response.status}, type ${contentType}): ${item.url}`);
-        return null;
-      } catch (error) {
-        // 如果 fetch 失败，可能是因为服务器拒绝了请求，但图片实际上是可访问的
-        // 这种情况下，我们仍然包含这个图片，让浏览器去验证
-        console.log(`Image fetch error (but may be accessible in browser): ${item.url} - ${error.message}`);
-        // 仍然返回这个图片，因为用户说能看到图片
-        return item;
-      }
-    });
-    
-    const results = await Promise.all(checkPromises);
-    accessibleImages.push(...results.filter(item => item !== null));
-    
-    res.json({ images: accessibleImages });
-  } catch (error) {
-    console.error('Failed to fetch background images:', error);
-    res.status(500).json({ error: 'Failed to fetch background images' });
+        res.json({ id: this.lastID, content, message: 'Announcement created' });
+      });
+    }
+  });
+});
+
+// Q&A Routes
+// Get Q&A content
+app.get('/api/qa', (req, res) => {
+  db.get('SELECT * FROM qa ORDER BY id DESC LIMIT 1', [], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(row || { id: null, title: '', content: '', updated_at: null });
+  });
+});
+
+// Update Q&A content (admin only)
+app.put('/api/qa', verifyToken, requireAdmin, (req, res) => {
+  const { title, content } = req.body;
+  
+  if (title === undefined || title === null || content === undefined || content === null) {
+    res.status(400).json({ error: 'Title and content are required' });
+    return;
   }
+  
+  // Check if qa exists
+  db.get('SELECT id FROM qa ORDER BY id DESC LIMIT 1', [], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    if (row) {
+      // Update existing qa
+      db.run('UPDATE qa SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [title, content, row.id], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        res.json({ id: row.id, title, content, message: 'Q&A updated' });
+      });
+    } else {
+      // Insert new qa
+      db.run('INSERT INTO qa (title, content) VALUES (?, ?)', [title, content], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        res.json({ id: this.lastID, title, content, message: 'Q&A created' });
+      });
+    }
+  });
+});
+
+// Guestbook Routes
+// Get guestbook messages
+app.get('/api/guestbook', (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+
+  // Get total count
+  db.get('SELECT COUNT(*) as total FROM guestbook', [], (err, countRow) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    // Get paginated messages
+    db.all(
+      `SELECT g.*, u.username 
+       FROM guestbook g 
+       JOIN users u ON g.user_id = u.id 
+       ORDER BY g.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [parseInt(limit), offset],
+      (err, rows) => {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        res.json({
+          comments: rows,
+          total: countRow.total,
+          page: parseInt(page),
+          limit: parseInt(limit)
+        });
+      }
+    );
+  });
+});
+
+// Add guestbook message
+app.post('/api/guestbook', verifyToken, (req, res) => {
+  const { content } = req.body;
+  const userId = req.user.id;
+
+  if (!content || !content.trim()) {
+    res.status(400).json({ error: 'Content is required' });
+    return;
+  }
+
+  db.run(
+    'INSERT INTO guestbook (user_id, content) VALUES (?, ?)',
+    [userId, content.trim()],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ id: this.lastID, message: 'Message added successfully' });
+    }
+  );
+});
+
+// Delete guestbook message
+app.delete('/api/guestbook/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  // Check if user is admin or owns the message
+  db.get('SELECT user_id FROM guestbook WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (!row) {
+      res.status(404).json({ error: 'Message not found' });
+      return;
+    }
+
+    // Check if user is admin
+    db.get('SELECT role FROM users WHERE id = ?', [userId], (err, user) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      if (user.role !== 'admin' && row.user_id !== userId) {
+        res.status(403).json({ error: 'Permission denied' });
+        return;
+      }
+
+      db.run('DELETE FROM guestbook WHERE id = ?', [id], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        res.json({ message: 'Message deleted successfully' });
+      });
+    });
+  });
 });
 
 app.get('/api/art/albums', verifyToken, (req, res) => {

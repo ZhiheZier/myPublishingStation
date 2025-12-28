@@ -10,17 +10,17 @@
     <!-- Background images with fade transition -->
     <div 
       v-if="themeStore.isFullTheme"
-      class="fixed inset-0 z-0 background-container"
+      class="background-container z-0"
     >
       <!-- Dark white background layer at the bottom -->
       <div class="background-base-layer"></div>
       <div
         v-for="(imageUrl, index) in themeStore.backgroundImages"
-        :key="index"
+        :key="`bg-${index}-${imageUrl}`"
         class="background-image"
         :class="{ 'active': index === themeStore.currentBackgroundIndex }"
         :style="{
-          backgroundImage: `url(${imageUrl})`,
+          backgroundImage: `url('${imageUrl}')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -90,22 +90,37 @@
                 <span class="text-gray-400">|</span>
                 <router-link
                   to="/tools"
+                  @click="handleToolsClick"
                   class="px-3 py-1 text-sm text-white hover:text-red-500 transition-colors duration-200"
                 >
                   小工具
                 </router-link>
+                <template v-if="authStore.user">
+                  <span class="text-gray-400">|</span>
+                  <router-link
+                    to="/favorites"
+                    @click="handleFavoritesClick"
+                    class="px-3 py-1 text-sm text-white hover:text-red-500 transition-colors duration-200"
+                  >
+                    收藏夹
+                  </router-link>
+                </template>
                 <span class="text-gray-400">|</span>
-                <a href="#" class="px-3 py-1 text-sm text-white hover:text-red-500 transition-colors duration-200">
-                  收藏夹
-                </a>
-                <span class="text-gray-400">|</span>
-                <a href="#" class="px-3 py-1 text-sm text-white hover:text-red-500 transition-colors duration-200">
+                <router-link
+                  to="/qna"
+                  @click="handleQnAClick"
+                  class="px-3 py-1 text-sm text-white hover:text-red-500 transition-colors duration-200"
+                >
                   问答专区
-                </a>
+                </router-link>
                 <span class="text-gray-400">|</span>
-                <a href="#" class="px-3 py-1 text-sm text-white hover:text-red-500 transition-colors duration-200">
+                <router-link
+                  to="/guestbook"
+                  @click="handleGuestbookClick"
+                  class="px-3 py-1 text-sm text-white hover:text-red-500 transition-colors duration-200"
+                >
                   留言板
-                </a>
+                </router-link>
               </nav>
             </div>
             <div class="flex items-center gap-3">
@@ -118,33 +133,6 @@
                 <svg v-if="themeStore.isSimpleDark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
               </button>
-              <div class="relative flex items-center gap-2" ref="userMenuRef">
-                <button
-                  class="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-gray-300 border border-white/40"
-                  @click="showUserMenu = !showUserMenu"
-                >
-                  <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" alt="Avatar" class="w-full h-full object-cover" />
-                  <svg v-else class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-                <span v-if="authStore.user" class="text-white text-sm px-2 py-1 rounded bg-white/10 border border-white/20">
-                  {{ authStore.user.username }}
-                </span>
-                <div
-                  v-if="showUserMenu"
-                  class="absolute right-0 top-full mt-2 bg-white/70 backdrop-blur-sm rounded-lg shadow-lg min-w-[160px] border border-white/70 z-50"
-                >
-                  <template v-if="!authStore.user">
-                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="router.push('/login')">登录</a>
-                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="router.push('/register')">注册</a>
-                  </template>
-                  <template v-else>
-                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="router.push('/profile')">设置</a>
-                    <a href="#" class="block px-4 py-2.5 text-sm text-black hover:bg-white/60" @click.prevent="handleLogout">退出</a>
-                  </template>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -184,29 +172,52 @@
           </div>
         </div>
       </footer>
+
+      <!-- Back to Top Button -->
+      <button
+        v-if="showBackToTop"
+        @click="scrollToTop"
+        class="fixed bottom-8 right-8 z-50 w-12 h-12 text-white rounded-full shadow-lg transition-all duration-300 flex items-center justify-center"
+        title="返回顶部"
+        :style="{ 
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          opacity: showBackToTop ? 1 : 0, 
+          pointerEvents: showBackToTop ? 'auto' : 'none' 
+        }"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+        </svg>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import Sidebar from './Sidebar.vue'
 import { useThemeStore } from '../stores/theme'
 import { useAuthStore } from '../stores/auth'
 
 const themeStore = useThemeStore()
-const route = useRoute()
-const router = useRouter()
 const authStore = useAuthStore()
+const route = useRoute()
 const showThemeMenu = ref(false)
-const showUserMenu = ref(false)
-const userMenuRef = ref(null)
+const showBackToTop = ref(false)
 const simpleBgStyle = computed(() => {
   return themeStore.isSimpleDark
     ? { background: 'linear-gradient(135deg, #0f172a 0%, #1f2937 50%, #334155 100%)' }
     : { background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%)' }
 })
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const handleScroll = () => {
+  showBackToTop.value = window.scrollY > 300
+}
 
 // Check if sidebar should be hidden based on route meta
 const hideSidebar = computed(() => route.meta.hideSidebar === true)
@@ -219,6 +230,31 @@ const handleHomeClick = (event) => {
   window.location.href = '/'
 }
 
+const handleFavoritesClick = (event) => {
+  // 无论当前在哪个页面，点击收藏夹都触发重定向并重新加载
+  event.preventDefault()
+  // 使用 window.location.href 跳转到收藏夹并重新加载页面
+  window.location.href = '/favorites'
+}
+
+const handleQnAClick = (event) => {
+  // 无论当前在哪个页面，点击问答专区都触发重定向并重新加载
+  event.preventDefault()
+  window.location.href = '/qna'
+}
+
+const handleGuestbookClick = (event) => {
+  // 无论当前在哪个页面，点击留言板都触发重定向并重新加载
+  event.preventDefault()
+  window.location.href = '/guestbook'
+}
+
+const handleToolsClick = (event) => {
+  // 无论当前在哪个页面，点击小工具都触发重定向并重新加载
+  event.preventDefault()
+  window.location.href = '/tools'
+}
+
 const switchTheme = (theme) => {
   themeStore.setTheme(theme)
   showThemeMenu.value = false
@@ -229,26 +265,10 @@ const switchTheme = (theme) => {
   // 切换主题后重新加载页面以确保所有组件应用新主题
   window.location.reload()
 }
-const handleLogout = () => {
-  authStore.logout()
-  router.push('/')
-}
 
 const toggleSimpleBg = () => {
   themeStore.setSimpleBgMode(themeStore.isSimpleDark ? 'light' : 'dark')
 }
-
-const handleDocClick = (e) => {
-  if (showUserMenu.value && userMenuRef.value && !userMenuRef.value.contains(e.target)) {
-    showUserMenu.value = false
-  }
-}
-onMounted(() => {
-  document.addEventListener('click', handleDocClick)
-})
-onUnmounted(() => {
-  document.removeEventListener('click', handleDocClick)
-})
 
 // 初始化时，如果是全特效版，确保加载背景图片
 onMounted(async () => {
@@ -261,6 +281,10 @@ onMounted(async () => {
       themeStore.startRotation()
     }
   }
+  
+  // Add scroll listener for back to top button
+  window.addEventListener('scroll', handleScroll)
+  handleScroll() // Initial check
 })
 
 // 监听主题变化，启动/停止轮换
@@ -279,9 +303,10 @@ watch(() => themeStore.isFullTheme, (isFull) => {
   }
 })
 
-// 清理定时器
+// 清理定时器和事件监听
 onUnmounted(() => {
   themeStore.stopRotation()
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
@@ -302,8 +327,13 @@ onUnmounted(() => {
 }
 
 .background-container {
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .background-base-layer {
@@ -331,10 +361,11 @@ onUnmounted(() => {
 
 .background-image.active {
   opacity: 1;
-  animation: zoom 10s ease-in-out forwards;
+  animation: zoom 5s ease-in-out forwards;
 }
 
 .background-image:not(.active) {
+  opacity: 0 !important;
   transform: scale(1.1);
 }
 
@@ -347,15 +378,4 @@ onUnmounted(() => {
   }
 }
 
-.background-container::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0);
-  z-index: 0;
-  pointer-events: none;
-}
 </style>

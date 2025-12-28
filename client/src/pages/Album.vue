@@ -10,7 +10,7 @@
         </button>
       </div>
       <div class="text-center">
-        <h2 class="text-xl font-semibold text-gray-900">{{ albumTitle }}</h2>
+        <h2 class="text-xl font-semibold" style="color: #111827;">{{ albumTitle }}</h2>
       </div>
       <div></div>
     </div>
@@ -39,7 +39,7 @@
 
     <div v-if="showAdd" class="modal">
       <div class="modal-content">
-        <h4 class="font-semibold mb-3">添加画作</h4>
+        <h4 class="font-semibold mb-3" style="color: #111827;">添加画作</h4>
         <input v-model.trim="artForm.title" class="input" placeholder="标题" />
         <input v-model.trim="artForm.imageUrl" class="input" placeholder="图片链接（或上传）" />
         <input type="file" @change="onFile" />
@@ -63,12 +63,12 @@
       <div class="viewer">
         <img :src="viewer.art?.image_url" class="viewer-image" />
         <div class="viewer-side">
-          <h4 class="font-semibold mb-2">{{ viewer.art?.title }}</h4>
+          <h4 class="font-semibold mb-2" style="color: #111827;">{{ viewer.art?.title }}</h4>
           <div class="chips mb-2">
             <span v-for="t in viewer.art?.tags || []" :key="t.id" class="chip">{{ t.name }}</span>
           </div>
           <div class="comments">
-            <h5 class="font-semibold mb-1">评论</h5>
+            <h5 class="font-semibold mb-1" style="color: #111827;">评论</h5>
             <ul class="space-y-2 max-h-64 overflow-auto">
               <li v-for="c in comments" :key="c.id" class="bg-white/70 rounded p-2">
                 <div class="text-sm text-gray-800">{{ c.username || '匿名' }} · {{ formatDate(c.created_at) }}</div>
@@ -76,7 +76,7 @@
               </li>
             </ul>
             <div v-if="isLogged" class="mt-2">
-              <textarea v-model.trim="newComment" class="input" placeholder="写下评论..."></textarea>
+              <textarea v-model.trim="newComment" class="input" placeholder="写下评论..." style="color: #111827;"></textarea>
               <button class="btn" @click="submitComment" :disabled="savingComment || !newComment">提交</button>
             </div>
           </div>
@@ -214,7 +214,8 @@ export default {
 @media (prefers-color-scheme: dark) {
   .back-btn { color: #fff; }
 }
-.input { width: 100%; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; margin-bottom: 8px; background: rgba(255,255,255,0.85); }
+.input { width: 100%; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; margin-bottom: 8px; background: rgba(255,255,255,0.85); color: #111827; }
+.input::placeholder { color: rgba(17, 24, 39, 0.5); }
 .btn { padding: 8px 12px; background: #ef4444; color: #fff; border: none; border-radius: 8px; }
 .btn-secondary { padding: 8px 12px; background: #e5e7eb; color: #111827; border: none; border-radius: 8px; }
 .tile { aspect-ratio: var(--tile-ratio, 1 / 1); border: 2px dashed rgba(255,255,255,0.5); border-radius: 16px; cursor: pointer; position: relative; background: rgba(255,255,255,0.12); backdrop-filter: blur(10px) saturate(120%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 10px 30px rgba(0,0,0,0.12); perspective: 800px; transform-style: preserve-3d; transition: box-shadow .25s ease, background .25s ease, border-color .25s ease; }
@@ -235,14 +236,6 @@ export default {
 .viewer { width: min(1100px, 95vw); background: rgba(255,255,255,0.95); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
 .viewer-image { width: 100%; height: 70vh; object-fit: contain; background: #111827; border-radius: 8px; }
 .viewer-side { display: flex; flex-direction: column; }
-/* Dark mode text color support restored */
-.tile-caption { text-align: center; font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-.text-gray-900 { color: #fff !important; }
-
-@media (prefers-color-scheme: dark) {
-  .tile-caption { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-  .text-gray-900 { color: #fff !important; }
-}
-:global(.dark-mode) .tile-caption { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-:global(.dark-mode) .text-gray-900 { color: #fff !important; }
+/* Force black text for album */
+.tile-caption { text-align: center; font-weight: 600; color: #111827 !important; text-shadow: 0 1px 2px rgba(255,255,255,0.6); }
 </style>

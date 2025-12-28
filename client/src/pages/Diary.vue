@@ -55,23 +55,9 @@ const entries = computed(() => {
 .back-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 9999px; background: rgba(255,255,255,0.2); color: #111827; border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 4px 12px rgba(0,0,0,0.12); transition: transform .15s ease, box-shadow .2s ease, opacity .2s ease; }
 .back-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,0.18); opacity: 0.95; }
 .back-btn:active { transform: translateY(0); box-shadow: 0 6px 16px rgba(0,0,0,0.14); }
-/* Dark mode text color support restored */
-.title { color: #fff; }
-.empty { color: #fff; }
-.note-head { color: #fff; }
-.note-body { color: #fff; }
-.back-btn { color: #fff; border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.16); }
-
-@media (prefers-color-scheme: dark) {
-  .title { color: #fff; }
-  .empty { color: #fff; }
-  .note-head { color: #fff; }
-  .note-body { color: #fff; }
-  .back-btn { color: #fff; border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.16); }
-}
-:global(.dark-mode) .title { color: #fff; }
-:global(.dark-mode) .empty { color: #fff; }
-:global(.dark-mode) .note-head { color: #fff; }
-:global(.dark-mode) .note-body { color: #fff; }
-:global(.dark-mode) .back-btn { color: #fff; border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.16); }
+/* Force black text for diary */
+.title { color: #111827 !important; }
+.empty { color: #374151 !important; }
+.note-head { color: #111827 !important; }
+.note-body { color: #111827 !important; }
 </style>

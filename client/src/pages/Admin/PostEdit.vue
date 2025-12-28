@@ -14,7 +14,7 @@
           v-model="formData.title"
           type="text"
           required
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white"
           placeholder="请输入文章标题"
         />
       </div>
@@ -29,7 +29,7 @@
             v-model="newTag"
             @keydown.enter.prevent="addTag"
             type="text"
-            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white"
             placeholder="输入标签后按回车添加"
           />
           <button

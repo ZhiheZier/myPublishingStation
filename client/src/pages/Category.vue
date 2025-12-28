@@ -21,9 +21,14 @@
         <button
           @click="page = Math.max(1, page - 1)"
           :disabled="page === 1"
-          class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors text-sm"
+          :class="[
+            'px-3 py-1 rounded transition-colors text-sm text-black border border-black',
+            page === 1
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-primary-600 hover:text-white hover:border-primary-600'
+          ]"
         >
-          上一页
+          <<
         </button>
         
         <div class="flex items-center gap-1">
@@ -33,10 +38,10 @@
               v-else
               @click="page = pageNum"
               :class="[
-                'px-3 py-1 rounded transition-colors text-sm',
+                'px-3 py-1 rounded transition-colors text-sm text-black',
                 page === pageNum
-                  ? 'bg-primary-600 text-white'
-                  : 'border border-gray-300 hover:bg-gray-100 text-gray-700'
+                  ? 'bg-primary-600 text-white border border-primary-600'
+                  : 'border border-black hover:bg-primary-600 hover:text-white hover:border-primary-600'
               ]"
             >
               {{ pageNum }}
@@ -47,9 +52,14 @@
         <button
           @click="page = Math.min(totalPages, page + 1)"
           :disabled="page === totalPages"
-          class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors text-sm"
+          :class="[
+            'px-3 py-1 rounded transition-colors text-sm text-black border border-black',
+            page === totalPages
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-primary-600 hover:text-white hover:border-primary-600'
+          ]"
         >
-          下一页
+          >>
         </button>
       </div>
     </div>

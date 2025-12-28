@@ -448,8 +448,8 @@ export default {
 .rows input[type="number"] { width: 100px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 8px; }
 .settings-merge .settings-line { flex-wrap: nowrap; gap: 12px; align-items: center; }
 .settings-merge .settings-line label { white-space: nowrap; }
-.settings-merge .settings-line input[type="number"] { width: 80px; }
-.settings-merge .settings-line select { min-width: 100px; }
+.settings-merge .settings-line input[type="number"] { width: 80px; background: rgba(255,255,255,0.85); }
+.settings-merge .settings-line select { min-width: 100px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 8px; background: rgba(255,255,255,0.85); }
 .rows button { padding: 8px 12px; background: #42b983; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
 .rows button:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(66,185,131,0.25); }
 .rows button:active { transform: translateY(0); box-shadow: none; }
@@ -471,12 +471,16 @@ export default {
 .settings-merge h4 { margin: 16px 0 0; font-size: 14px; color: #6b7280; }
 .card { background: rgba(255,255,255,0.3); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.6); border-radius: 12px; padding: 16px; box-shadow: 0 10px 24px rgba(0,0,0,0.14); }
 .todo-input { display: flex; gap: 14px; }
-.todo-input input { flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; }
+.todo-input input { flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; background: rgba(255,255,255,0.85); color: #111827; }
+.todo-input button { padding: 8px 12px; background: #42b983; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.todo-input button:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(66,185,131,0.25); }
+.todo-input button:active { transform: translateY(0); box-shadow: none; }
+.todo-input button:disabled { opacity: 0.5; cursor: not-allowed; }
 .todo-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .todo-list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px dashed #e5e7eb; border-radius: 8px; }
 .todo-list li.done span { text-decoration: line-through; color: #6b7280; }
 .todo-list .del { margin-left: auto; background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; border-radius: 6px; padding: 6px 8px; }
-textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: rgba(255,255,255,0.85); color: #111827; }
 .calendar { display: flex; flex-direction: column; gap: 10px; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }

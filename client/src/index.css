@@ -150,13 +150,14 @@
 
 /* Rich content default styles - wrap content in div blocks */
 /* Exclude announcement section - don't apply styles to announcement */
-/* Only apply to p and div that don't have inline styles */
-.rich-content:not([data-announcement]) > p:not([style*="color"]):not([style*="background"]):not([style*="background-color"]),
-.rich-content:not([data-announcement]) > div:not([class*="ql"]):not([style*="color"]):not([style*="background"]):not([style*="background-color"]):not([style]) {
+/* Only apply to p and div that don't have inline styles and have actual text content */
+/* Exclude empty or whitespace-only elements */
+.rich-content:not([data-announcement]) > p:not([style*="color"]):not([style*="background"]):not([style*="background-color"]):not(:empty),
+.rich-content:not([data-announcement]) > div:not([class*="ql"]):not([style*="color"]):not([style*="background"]):not([style*="background-color"]):not([style]):not(:empty) {
   background-color: rgba(255, 255, 255, 0.4);
   color: #111827;
   padding: 12px 16px;
-  margin: 0;
+  margin: 0 0 12px 0;
   border-radius: 4px;
   min-height: fit-content;
   height: auto;
@@ -164,11 +165,23 @@
   box-sizing: border-box;
 }
 
+/* Hide empty or whitespace-only p/div elements (only whitespace, line breaks, etc.) */
+.rich-content:not([data-announcement]) > p:empty,
+.rich-content:not([data-announcement]) > div:empty {
+  display: none;
+}
+
+/* Hide p/div that only contain br tags (blank lines) */
+.rich-content:not([data-announcement]) > p:has(> br:only-child),
+.rich-content:not([data-announcement]) > div:has(> br:only-child):not([class*="ql"]) {
+  display: none;
+}
+
 /* Preserve explicit color styles - keep user-set colors from editor */
 .rich-content:not([data-announcement]) p[style*="color"],
 .rich-content:not([data-announcement]) div[style*="color"] {
   padding: 12px 16px;
-  margin: 0;
+  margin: 0 0 12px 0;
   border-radius: 4px;
   width: 100%;
   box-sizing: border-box;
@@ -190,7 +203,7 @@
 .rich-content:not([data-announcement]) p[style*="background-color"],
 .rich-content:not([data-announcement]) div[style*="background-color"] {
   padding: 12px 16px;
-  margin: 0;
+  margin: 0 0 12px 0;
   border-radius: 4px;
   width: 100%;
   box-sizing: border-box;
@@ -205,7 +218,7 @@
 .rich-content:not([data-announcement]) p[style*="color"][style*="background-color"],
 .rich-content:not([data-announcement]) div[style*="color"][style*="background-color"] {
   padding: 12px 16px;
-  margin: 0;
+  margin: 0 0 12px 0;
   border-radius: 4px;
   width: 100%;
   box-sizing: border-box;
@@ -258,6 +271,7 @@
 }
 
 /* Image styles in rich content - smaller than headings, no div block styling */
+/* Default: centered, larger images for standalone images */
 .rich-content img {
   cursor: zoom-in;
   transition: transform 0.3s ease;
@@ -268,6 +282,16 @@
   background-color: transparent !important;
   padding: 0 !important;
   border-radius: 0 !important;
+}
+
+/* Inline images (images within text blocks) - left aligned, smaller */
+.rich-content p:not(:has(> img:only-child)) img,
+.rich-content div:not(:has(> img:only-child)):not([class*="ql"]) img {
+  display: inline-block !important;
+  max-width: 30% !important;
+  height: auto;
+  margin: 0 0.5rem 0 0 !important;
+  vertical-align: middle;
 }
 
 .rich-content img:hover {
@@ -284,3 +308,43 @@
   margin: 0 !important;
   border-radius: 0 !important;
 }
+
+/* Link styles - display as red button with "链接" text */
+.rich-content:not([data-announcement]) a {
+  display: inline-block;
+  background-color: #ef4444 !important;
+  color: white !important;
+  padding: 4px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  margin: 4px 0;
+  font-size: 0;
+  position: relative;
+  vertical-align: middle;
+  line-height: 1.5;
+  height: auto;
+}
+
+.rich-content:not([data-announcement]) a::after {
+  content: "链接";
+  font-size: 14px;
+  display: inline-block;
+  line-height: 1.5;
+}
+
+.rich-content:not([data-announcement]) a:hover {
+  background-color: #dc2626 !important;
+  color: white !important;
+}
+
+.rich-content:not([data-announcement]) a:visited {
+  color: white !important;
+}
+
+/* Hide all children of links */
+.rich-content:not([data-announcement]) a > * {
+  display: none !important;
+}
+

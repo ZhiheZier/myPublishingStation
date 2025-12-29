@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import sqlite3 from 'sqlite3';
@@ -1607,6 +1608,27 @@ app.delete('/api/art/albums/:id', verifyToken, (req, res) => {
     });
   });
 });
+
+// Serve static files from Vue app (production only)
+if (process.env.NODE_ENV === 'production') {
+  const distPath = join(__dirname, '../client/dist');
+  if (fs.existsSync(distPath)) {
+    // Serve static assets
+    app.use(express.static(distPath));
+    
+    // All non-API routes should return index.html (for Vue Router)
+    app.get('*', (req, res, next) => {
+      // Skip API routes, uploads, and backgrounds
+      if (req.path.startsWith('/api') || 
+          req.path.startsWith('/uploads') || 
+          req.path.startsWith('/backgrounds')) {
+        return next();
+      }
+      res.sendFile(join(distPath, 'index.html'));
+    });
+  }
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

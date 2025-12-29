@@ -333,11 +333,90 @@ const extractImages = (htmlContent) => {
   return images.map(img => img.src).filter(src => src)
 }
 
-// Transfer span background-color to parent p/div
+// Get computed background color from element style or computed style
+const getBackgroundColor = (el) => {
+  if (!el) return null
+  
+  // First check inline style
+  const inlineStyle = el.getAttribute('style') || ''
+  const bgColorMatch = inlineStyle.match(/background-color\s*:\s*([^;]+)/i)
+  if (bgColorMatch) {
+    return bgColorMatch[1].trim()
+  }
+  
+  // Then check computed style (for elements with default background from CSS)
+  const computedStyle = window.getComputedStyle(el)
+  const bgColor = computedStyle.backgroundColor
+  
+  // Return the computed color if it's not transparent
+  if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+    return bgColor
+  }
+  
+  return null
+}
+
+// Normalize color strings for comparison (handle rgba, rgb, hex, etc.)
+const normalizeColor = (color) => {
+  if (!color) return null
+  
+  // Remove all whitespace and convert to lowercase
+  let normalized = color.trim().toLowerCase().replace(/\s/g, '')
+  
+  // Handle rgba/rgb - normalize format (remove spaces in parentheses)
+  if (normalized.startsWith('rgba') || normalized.startsWith('rgb')) {
+    // Ensure consistent format: rgba(255,255,255,0.4) not rgba(255, 255, 255, 0.4)
+    normalized = normalized.replace(/\s*,\s*/g, ',')
+    return normalized
+  }
+  
+  // Handle hex colors - normalize to lowercase, ensure 6 digits
+  if (normalized.startsWith('#')) {
+    // Expand short hex (#fff -> #ffffff)
+    if (normalized.length === 4) {
+      normalized = '#' + normalized[1] + normalized[1] + normalized[2] + normalized[2] + normalized[3] + normalized[3]
+    }
+    return normalized
+  }
+  
+  return normalized
+}
+
+// Transfer span background-color to parent p/div and handle empty elements
 const transferSpanBackgroundToParent = () => {
   if (!richContentRef.value) return
   
   const richContent = richContentRef.value
+  
+  // Hide empty or whitespace-only p/div elements
+  const isEmptyOrWhitespace = (el) => {
+    const text = el.textContent?.trim() || ''
+    // Check if element is empty or only contains whitespace/line breaks
+    const hasOnlyBreaks = Array.from(el.children).every(child => 
+      child.tagName === 'BR' || (child.tagName === 'SPAN' && !child.textContent?.trim())
+    )
+    return text === '' && (el.children.length === 0 || hasOnlyBreaks)
+  }
+  
+  const allPElements = richContent.querySelectorAll('p')
+  const allDivElements = richContent.querySelectorAll('div')
+  
+  allPElements.forEach(p => {
+    if (isEmptyOrWhitespace(p) && !p.hasAttribute('data-announcement')) {
+      p.style.display = 'none'
+    }
+  })
+  
+  allDivElements.forEach(div => {
+    // Skip ql-editor and other Quill classes
+    if (!div.classList.contains('ql-editor') && 
+        !div.classList.contains('ql-clipboard') &&
+        !div.hasAttribute('data-announcement') &&
+        isEmptyOrWhitespace(div)) {
+      div.style.display = 'none'
+    }
+  })
+  
   // Find all span elements with background-color
   const spansWithBg = richContent.querySelectorAll('span[style*="background-color"]')
   
@@ -372,6 +451,58 @@ const transferSpanBackgroundToParent = () => {
       }
     }
   })
+  
+  // Merge adjacent elements with same background color
+  const allBlockElements = Array.from(richContent.children).filter(el => {
+    return (el.tagName === 'P' || el.tagName === 'DIV') && 
+           !el.hasAttribute('data-announcement') &&
+           el.style.display !== 'none' &&
+           !el.classList.contains('ql-editor') &&
+           !el.classList.contains('ql-clipboard')
+  })
+  
+  for (let i = 0; i < allBlockElements.length - 1; i++) {
+    const currentEl = allBlockElements[i]
+    const nextEl = allBlockElements[i + 1]
+    
+    // Skip if either element is hidden
+    if (currentEl.style.display === 'none' || nextEl.style.display === 'none') {
+      continue
+    }
+    
+    // Get background colors
+    const currentBg = getBackgroundColor(currentEl)
+    const nextBg = getBackgroundColor(nextEl)
+    
+    // Normalize colors for comparison
+    const normalizedCurrentBg = normalizeColor(currentBg)
+    const normalizedNextBg = normalizeColor(nextBg)
+    
+    // If both have the same background color (and it's not transparent/default)
+    if (normalizedCurrentBg && 
+        normalizedNextBg && 
+        normalizedCurrentBg === normalizedNextBg &&
+        normalizedCurrentBg !== 'rgba(0,0,0,0)' &&
+        normalizedCurrentBg !== 'transparent') {
+      // Remove bottom margin from current element and top margin from next element
+      // This merges adjacent blocks with the same background color
+      currentEl.style.marginBottom = '0'
+      nextEl.style.marginTop = '0'
+      // Mark elements that we've adjusted
+      currentEl.dataset.marginAdjusted = 'true'
+      nextEl.dataset.marginAdjusted = 'true'
+    } else {
+      // Reset margins if colors don't match (in case content was updated)
+      if (currentEl.dataset.marginAdjusted === 'true') {
+        currentEl.style.marginBottom = ''
+        currentEl.dataset.marginAdjusted = 'false'
+      }
+      if (nextEl.dataset.marginAdjusted === 'true') {
+        nextEl.style.marginTop = ''
+        nextEl.dataset.marginAdjusted = 'false'
+      }
+    }
+  }
 }
 
 const handleContentClick = (e) => {

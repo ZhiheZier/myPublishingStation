@@ -1,10 +1,38 @@
+# Dependencies
 node_modules/
-dist/
-build/
-*.db
-*.sqlite
-*.sqlite3
+client/node_modules/
+
+# Build outputs
+client/dist/
+
+# Database
+server/publishStation.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment variables
 .env
-.DS_Store
+.env.local
+.env.production
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (optional - remove if you want to track uploads)
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Backups
+backups/
+*.db.gz

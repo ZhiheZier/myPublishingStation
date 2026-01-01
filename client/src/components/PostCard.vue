@@ -98,7 +98,7 @@
             <div class="overlay-bg absolute inset-0 bg-gray-800/60">
             </div>
             <div class="overlay-content absolute inset-0 p-6 overflow-hidden">
-              <div class="text-2xl text-white leading-relaxed max-w-none description-text" v-html="getRichContent(post.content)"></div>
+              <div class="text-2xl text-white leading-relaxed description-text">{{ getRichContent(post.content) }}</div>
             </div>
           </div>
         </a>
@@ -172,14 +172,17 @@ onMounted(() => {
 
 const getRichContent = (htmlContent) => {
   if (!htmlContent) return ''
-  // Remove image tags from HTML content
+  // Convert HTML to plain text, remove all HTML tags and line breaks
   const div = document.createElement('div')
   div.innerHTML = htmlContent
   // Remove all img elements
   const images = div.querySelectorAll('img')
   images.forEach(img => img.remove())
-  // Return HTML without images
-  return div.innerHTML
+  // Get plain text content, remove all line breaks and extra spaces
+  let text = div.textContent || div.innerText || ''
+  // Replace all whitespace (including line breaks) with single space
+  text = text.replace(/\s+/g, ' ').trim()
+  return text
 }
 
 const formatDateTime = (dateString) => {
@@ -290,45 +293,23 @@ const formatDateTime = (dateString) => {
   max-width: 100%;
 }
 
-/* 描述文本截断（使用多行省略） */
+/* 描述文本截断（使用多行省略，不换行但可以多行显示） */
 .description-text {
   display: -webkit-box;
-  -webkit-line-clamp: 8; /* 显示最多8行 */
-  line-clamp: 8; /* 标准属性 */
   -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
+  white-space: normal;
+  width: 100%;
   line-height: 1.6;
-}
-
-.description-text :deep(*) {
-  display: inline;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  font-weight: normal !important;
-  font-style: normal !important;
-  text-decoration: none !important;
-  font-size: inherit !important;
-  line-height: inherit !important;
-  color: white !important;
-}
-
-.description-text :deep(p) {
-  display: inline;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.description-text :deep(br) {
-  display: block;
-  content: "";
-  margin-top: 0.5em;
+  /* 根据容器高度计算可显示的行数：容器高度500px，减去padding 48px，每行约38px，约11行 */
+  -webkit-line-clamp: 11;
+  line-clamp: 11;
+  max-height: 100%;
+  /* -webkit-line-clamp 会自动添加省略号，但为了兼容性也设置 text-overflow */
+  text-overflow: ellipsis;
+  /* 确保文本在最后一行被截断时显示省略号 */
+  -webkit-box-pack: start;
 }
 
 /* Card animation states - Flip inward from behind the screen (rotateX) */

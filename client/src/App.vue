@@ -13,7 +13,9 @@ const authStore = useAuthStore()
 
 // Initialize auth store before component mounts to ensure user state is available
 onBeforeMount(async () => {
-  if (authStore.loading) {
+  // Check if we need to initialize (loading or have token but no user)
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+  if (authStore.loading || (token && !authStore.user)) {
     await authStore.init()
   }
 })

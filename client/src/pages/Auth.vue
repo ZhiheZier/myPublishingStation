@@ -217,10 +217,14 @@ export default {
         const res = await login({ email, password })
         const token = res.data.token
         const user = res.data.user
+        // Always use localStorage so tokens are accessible across tabs
+        // Token has 7-day expiration, so it will auto-expire even if user doesn't check "remember me"
+        localStorage.setItem('token', token)
+        // Also store rememberMe preference for future reference
         if (this.loginForm.rememberMe) {
-          localStorage.setItem('token', token)
+          localStorage.setItem('rememberMe', 'true')
         } else {
-          sessionStorage.setItem('token', token)
+          localStorage.removeItem('rememberMe')
         }
         const authStore = useAuthStore()
         authStore.setUser(user)

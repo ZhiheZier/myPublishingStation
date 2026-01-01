@@ -318,16 +318,15 @@ const { registerElement: registerWidget, checkAllInitialState } = useScrollAnima
 })
 
 onMounted(async () => {
-  // Ensure authStore is initialized (always call init to check token)
-  if (authStore.loading) {
+  // Ensure authStore is initialized
+  // For new tabs, always check if we need to initialize based on token presence
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+  
+  // If we have a token but no user, or if still loading, initialize
+  if ((token && !authStore.user) || authStore.loading) {
     await authStore.init()
-  } else {
-    // If not loading, check if we need to init anyway (e.g., new tab opened)
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-    if (token && !authStore.user) {
-      await authStore.init()
-    }
   }
+  
   isAuthInitialized.value = true
   
   // Load all content first

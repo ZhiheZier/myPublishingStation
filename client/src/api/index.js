@@ -165,8 +165,17 @@ api.interceptors.response.use(
     if (status === 401) {
       localStorage.removeItem('token');
       sessionStorage.removeItem('token');
+      // Only redirect to login if we're not already on the login/register page
+      // and if the request is not for /auth/me (which is used for initialization)
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        const currentPath = window.location.pathname;
+        const isAuthRequest = error?.config?.url?.includes('/auth/me');
+        const isAuthPage = currentPath === '/login' || currentPath === '/register';
+        
+        // Don't redirect if it's an auth initialization request or we're already on auth page
+        if (!isAuthRequest && !isAuthPage) {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

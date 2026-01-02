@@ -461,12 +461,18 @@ const transferSpanBackgroundToParent = () => {
            !el.classList.contains('ql-clipboard')
   })
   
-  for (let i = 0; i < allBlockElements.length - 1; i++) {
+  // First pass: merge adjacent blocks with same background color by moving content
+  // Process from end to beginning to avoid index issues when removing elements
+  for (let i = allBlockElements.length - 2; i >= 0; i--) {
     const currentEl = allBlockElements[i]
     const nextEl = allBlockElements[i + 1]
     
-    // Skip if either element is hidden
-    if (currentEl.style.display === 'none' || nextEl.style.display === 'none') {
+    // Skip if either element is hidden or already merged
+    if (!currentEl || !nextEl ||
+        currentEl.style.display === 'none' || 
+        nextEl.style.display === 'none' ||
+        currentEl.dataset.merged === 'true' ||
+        nextEl.dataset.merged === 'true') {
       continue
     }
     
@@ -484,21 +490,67 @@ const transferSpanBackgroundToParent = () => {
         normalizedCurrentBg === normalizedNextBg &&
         normalizedCurrentBg !== 'rgba(0,0,0,0)' &&
         normalizedCurrentBg !== 'transparent') {
-      // Remove bottom margin from current element and top margin from next element
-      // This merges adjacent blocks with the same background color
+      // Merge next element's content into current element
+      const nextContent = nextEl.innerHTML
+      if (nextContent.trim()) {
+        // Add content from next element to current element
+        // Preserve line breaks between merged blocks
+        if (currentEl.innerHTML.trim()) {
+          // Add a line break between merged content to preserve the original line break
+          currentEl.innerHTML += '<br>' + nextContent
+        } else {
+          currentEl.innerHTML = nextContent
+        }
+        // Mark next element as merged and hide it
+        nextEl.dataset.merged = 'true'
+        nextEl.style.display = 'none'
+      }
+    }
+  }
+  
+  // Second pass: remove margins/padding between remaining adjacent blocks with same background
+  const remainingBlocks = allBlockElements.filter(el => 
+    el && el.style.display !== 'none' && el.dataset.merged !== 'true'
+  )
+  
+  for (let i = 0; i < remainingBlocks.length - 1; i++) {
+    const currentEl = remainingBlocks[i]
+    const nextEl = remainingBlocks[i + 1]
+    
+    if (!currentEl || !nextEl) continue
+    
+    // Get background colors
+    const currentBg = getBackgroundColor(currentEl)
+    const nextBg = getBackgroundColor(nextEl)
+    
+    // Normalize colors for comparison
+    const normalizedCurrentBg = normalizeColor(currentBg)
+    const normalizedNextBg = normalizeColor(nextBg)
+    
+    // If both have the same background color (and it's not transparent/default)
+    if (normalizedCurrentBg && 
+        normalizedNextBg && 
+        normalizedCurrentBg === normalizedNextBg &&
+        normalizedCurrentBg !== 'rgba(0,0,0,0)' &&
+        normalizedCurrentBg !== 'transparent') {
+      // Remove bottom margin/padding from current element and top margin/padding from next element
       currentEl.style.marginBottom = '0'
+      currentEl.style.paddingBottom = '0'
       nextEl.style.marginTop = '0'
+      nextEl.style.paddingTop = '0'
       // Mark elements that we've adjusted
       currentEl.dataset.marginAdjusted = 'true'
       nextEl.dataset.marginAdjusted = 'true'
     } else {
-      // Reset margins if colors don't match (in case content was updated)
+      // Reset margins/padding if colors don't match
       if (currentEl.dataset.marginAdjusted === 'true') {
         currentEl.style.marginBottom = ''
+        currentEl.style.paddingBottom = ''
         currentEl.dataset.marginAdjusted = 'false'
       }
       if (nextEl.dataset.marginAdjusted === 'true') {
         nextEl.style.marginTop = ''
+        nextEl.style.paddingTop = ''
         nextEl.dataset.marginAdjusted = 'false'
       }
     }

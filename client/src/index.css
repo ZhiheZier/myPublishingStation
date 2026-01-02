@@ -149,6 +149,20 @@
 }
 
 /* Rich content default styles - wrap content in div blocks */
+/* Preserve whitespace and line breaks in rich content */
+.rich-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Ensure text container elements preserve whitespace and line breaks */
+.rich-content p,
+.rich-content div:not([class*="ql"]),
+.rich-content span,
+.rich-content li {
+  white-space: pre-wrap;
+}
+
 /* Exclude announcement section - don't apply styles to announcement */
 /* Only apply to p and div that don't have inline styles and have actual text content */
 /* Exclude empty or whitespace-only elements */
@@ -163,6 +177,7 @@
   height: auto;
   width: 100%;
   box-sizing: border-box;
+  white-space: pre-wrap; /* Preserve whitespace and line breaks */
 }
 
 /* Hide empty or whitespace-only p/div elements (only whitespace, line breaks, etc.) */
@@ -187,6 +202,7 @@
   box-sizing: border-box;
   min-height: fit-content;
   height: auto;
+  white-space: pre-wrap; /* Preserve whitespace and line breaks */
   /* Preserve the explicitly set color from editor - don't override */
 }
 
@@ -209,6 +225,7 @@
   box-sizing: border-box;
   min-height: fit-content;
   height: auto;
+  white-space: pre-wrap; /* Preserve whitespace and line breaks */
   /* Preserve the explicitly set background from editor - don't override */
 }
 
@@ -224,6 +241,7 @@
   box-sizing: border-box;
   min-height: fit-content;
   height: auto;
+  white-space: pre-wrap; /* Preserve whitespace and line breaks */
   /* Preserve both explicitly set styles (color and background) from editor */
 }
 
